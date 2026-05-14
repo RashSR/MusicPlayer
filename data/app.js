@@ -73,11 +73,11 @@ async function loadSongs() {
                 <h3>${album.name}</h3>
 
                 <div>
-                    <span class="arrow">▼</span>
+                    <span class="arrow">▶</span>
                 </div>
             </div>
 
-            <div class="track-list">
+            <div class="track-list collapsed">
                 ${tracksHTML}
             </div>
         `;
