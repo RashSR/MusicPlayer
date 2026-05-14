@@ -117,7 +117,7 @@
     },
     {
       "name": "Reputation",
-      "cover": "",
+      "cover": "reputation.jpg",
       "tracks": [
         { "id": 601, "title": "…Ready for It?" },
         { "id": 602, "title": "End Game" },
@@ -138,7 +138,7 @@
     },
     {
       "name": "Lover",
-      "cover": "",
+      "cover": "lover.jpg",
       "tracks": [
         { "id": 701, "title": "I Forgot That You Existed" },
         { "id": 702, "title": "Cruel Summer" },
@@ -162,7 +162,7 @@
     },
     {
       "name": "Folklore",
-      "cover": "",
+      "cover": "folklore.jpg",
       "tracks": [
         { "id": 801, "title": "The 1" },
         { "id": 802, "title": "Cardigan" },
@@ -185,7 +185,7 @@
     },
     {
       "name": "Evermore",
-      "cover": "",
+      "cover": "evermore.jpg",
       "tracks": [
         { "id": 901, "title": "Willow" },
         { "id": 902, "title": "Champagne Problems" },
@@ -208,7 +208,7 @@
     },
     {
       "name": "Midnights",
-      "cover": "",
+      "cover": "midnights.jpg",
       "tracks": [
         { "id": 1001, "title": "Lavender Haze" },
         { "id": 1002, "title": "Maroon" },
@@ -236,7 +236,7 @@
     },
     {
       "name": "The Tortured Poetes Department",
-      "cover": "",
+      "cover": "tortured_poets_department.jpg",
       "tracks": [
         { "id": 1101, "title": "Fortnight" },
         { "id": 1102, "title": "The Tortured Poets Department" },
@@ -273,7 +273,7 @@
     },
     {
       "name": "The Life of a Showgirl",
-      "cover": "",
+      "cover": "life_of_a_showgirl.jpg",
       "tracks": [
         { "id": 1201, "title": "The Fate of Ophelia" },
         { "id": 1202, "title": "Elizabeth Taylor" },
