@@ -102,6 +102,10 @@
       flex-wrap: wrap;
     }
 
+    .hidden{
+      display: none;
+    }
+
     button {
       border: none;
       background: #7c3aed;
