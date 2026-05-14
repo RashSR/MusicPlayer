@@ -41,3 +41,54 @@ function toggleAlbum(header) {
         arrow.innerHTML = '▼';
     }
 }
+
+async function loadSongs() {
+
+    const response = await fetch('songs.json');
+    const data = await response.json();
+
+    const container = document.getElementById('albumsContainer');
+
+    data.albums.forEach(album => {
+
+        const albumDiv = document.createElement('div');
+        albumDiv.className = 'album';
+
+        let tracksHTML = '';
+
+        album.tracks.forEach((track, index) => {
+
+            tracksHTML += `
+                <div class="track">
+                    <div class="track-left">
+                        <div class="track-number">${index + 1}</div>
+                        <div class="track-name">${track.title}</div>
+                    </div>
+
+                    <button onclick="playTrack(${track.id})">
+                        Play
+                    </button>
+                </div>
+            `;
+        });
+
+        albumDiv.innerHTML = `
+            <div class="album-header" onclick="toggleAlbum(this)">
+                <h3>${album.name}</h3>
+
+                <div>
+                    <span>Album ${album.albumNumber}</span>
+                    <span class="arrow">▼</span>
+                </div>
+            </div>
+
+            <div class="track-list">
+                ${tracksHTML}
+            </div>
+        `;
+
+        container.appendChild(albumDiv);
+    });
+}
+
+loadSongs();

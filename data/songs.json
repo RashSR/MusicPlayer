@@ -69,7 +69,7 @@
     },
     {
       "name": "Red",
-      "cover": "",
+      "cover": "red.jpg",
       "tracks": [
         { "id": 401, "title": "State of Grace" },
         { "id": 402, "title": "Red" },
