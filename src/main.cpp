@@ -52,6 +52,7 @@ void setup() {
     server.send(200, "text/plain", "Shuffle");
   });
 
+  server.serveStatic("/", LittleFS, "/");
   server.begin();
 }
 
