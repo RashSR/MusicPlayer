@@ -1,6 +1,7 @@
 let isShuffleEnabled = false;
 let isPlaying = false;
 let currentTrack = null;
+let songsData = null;
 
 function sendCommand(command) {
     console.log('Sending command:', command);
@@ -20,9 +21,40 @@ function toggleShuffle() {
     console.log('Shuffle:', isShuffleEnabled);
 }
 
-function playTrack(trackNumber) {
-    console.log('Playing track:', trackNumber);
-    alert('Playing track: ' + trackNumber);
+function playTrack(trackId) {
+
+    let foundTrack = null;
+    let foundAlbum = null;
+
+    songsData.albums.forEach(album => {
+
+        album.tracks.forEach(track => {
+
+            if(track.id === trackId) {
+                foundTrack = track;
+                foundAlbum = album;
+            }
+
+        });
+
+    });
+
+    if(!foundTrack) return;
+
+    currentTrack = foundTrack;
+
+    document.getElementById('currentSong').innerText =
+        foundTrack.title;
+
+    document.getElementById('currentAlbum').innerText =
+        foundAlbum.name;
+
+    document.getElementById('albumCover').src =
+        foundAlbum.cover;
+
+    console.log('Now playing:', foundTrack.title);
+
+    fetch('/play?track=' + trackId);
 }
 
 function toggleAlbum(header) {
@@ -41,11 +73,11 @@ function toggleAlbum(header) {
 async function loadSongs() {
 
     const response = await fetch('songs.json');
-    const data = await response.json();
+    songsData = await response.json();
 
     const container = document.getElementById('albumsContainer');
 
-    data.albums.forEach(album => {
+    songsData.albums.forEach(album => {
 
         const albumDiv = document.createElement('div');
         albumDiv.className = 'album';

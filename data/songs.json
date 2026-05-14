@@ -2,7 +2,7 @@
   "albums": [
     {
       "name": "Taylor Swift",
-      "cover": "taylor swift.jpg",
+      "cover": "taylor_swift.jpg",
       "tracks": [
         { "id": 101, "title": "Tim McGraw" },
         { "id": 102, "title": "Picture to Burn" },
@@ -46,7 +46,7 @@
     },
     {
       "name": "Speak Now",
-      "cover": "Speak Now.jpg",
+      "cover": "speak_now.jpg",
       "tracks": [
         { "id": 301, "title": "Mine" },
         { "id": 302, "title": "Sparks Fly" },

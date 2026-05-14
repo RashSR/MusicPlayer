@@ -32,26 +32,6 @@ void setup() {
     file.close();
   });
 
-  server.on("/play", []() {
-    Serial.println("PLAY pressed");
-    server.send(200, "text/plain", "Playing");
-  });
-
-  server.on("/pause", []() {
-    Serial.println("PAUSE pressed");
-    server.send(200, "text/plain", "Paused");
-  });
-
-  server.on("/next", []() {
-    Serial.println("NEXT pressed");
-    server.send(200, "text/plain", "Next");
-  });
-
-  server.on("/shuffle", []() {
-    Serial.println("SHUFFLE pressed");
-    server.send(200, "text/plain", "Shuffle");
-  });
-
   server.serveStatic("/", LittleFS, "/");
   server.begin();
 }
