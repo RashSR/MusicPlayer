@@ -22,10 +22,6 @@ function toggleShuffle() {
 
 function playTrack(trackNumber) {
     console.log('Playing track:', trackNumber);
-
-    // Later:
-    // fetch('/play?num=' + trackNumber)
-
     alert('Playing track: ' + trackNumber);
 }
 
@@ -77,7 +73,6 @@ async function loadSongs() {
                 <h3>${album.name}</h3>
 
                 <div>
-                    <span>Album ${album.albumNumber}</span>
                     <span class="arrow">▼</span>
                 </div>
             </div>
