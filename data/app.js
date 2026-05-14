@@ -51,7 +51,7 @@ function playTrack(trackId) {
 
     const cover = document.getElementById('albumCover');
 
-    cover.src = foundAlbum.cover;
+    cover.src = "albumCover/" + foundAlbum.cover;
     cover.classList.remove('hidden');
 
     console.log('Now playing:', foundTrack.title);
