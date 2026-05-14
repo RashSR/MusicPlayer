@@ -1,0 +1,260 @@
+{
+  "albums": [
+    {
+      "name": "Taylor Swift",
+      "cover": "taylor swift.jpg",
+      "tracks": [
+        { "id": 101, "title": "Tim McGraw", "isBonus": false },
+        { "id": 102, "title": "Picture to Burn", "isBonus": false },
+        { "id": 103, "title": "Teardrops on My Guitar", "isBonus": false },
+        { "id": 104, "title": "A Place in This World", "isBonus": false },
+        { "id": 105, "title": "Cold as You", "isBonus": false },
+        { "id": 106, "title": "The Outside", "isBonus": false },
+        { "id": 107, "title": "Tied Together with a Smile", "isBonus": false },
+        { "id": 108, "title": "Stay Beautiful", "isBonus": false },
+        { "id": 109, "title": "Should’ve Said No", "isBonus": false },
+        { "id": 110, "title": "Mary’s Song (Oh My My My)", "isBonus": false },
+        { "id": 111, "title": "Our Song", "isBonus": false },
+        { "id": 112, "title": "I’m Only Me When I’m with You", "isBonus": true },
+        { "id": 113, "title": "Invisible", "isBonus": true },
+        { "id": 114, "title": "A Perfectly Good Heart", "isBonus": true }
+      ]
+    },
+    {
+      "name": "Fearless",
+      "cover": "fearless.jpg",
+      "tracks": [
+        { "id": 201, "title": "Fearless", "isBonus": false },
+        { "id": 202, "title": "Fifteen", "isBonus": false },
+        { "id": 203, "title": "Love Story", "isBonus": false },
+        { "id": 204, "title": "Hey Stephen", "isBonus": false },
+        { "id": 205, "title": "White Horse", "isBonus": false },
+        { "id": 206, "title": "You Belong with Me", "isBonus": false },
+        { "id": 207, "title": "Breathe", "isBonus": false },
+        { "id": 208, "title": "Tell Me Why", "isBonus": false },
+        { "id": 209, "title": "You’re Not Sorry", "isBonus": false },
+        { "id": 210, "title": "The Way I Loved You", "isBonus": false },
+        { "id": 211, "title": "Forever & Always", "isBonus": false },
+        { "id": 212, "title": "The Best Day", "isBonus": false },
+        { "id": 213, "title": "Change", "isBonus": false },
+        { "id": 214, "title": "Jump Then Fall", "isBonus": true },
+        { "id": 215, "title": "Untouchable", "isBonus": true },
+        { "id": 216, "title": "Come in with the Rain", "isBonus": true },
+        { "id": 217, "title": "Superstar", "isBonus": true },
+        { "id": 218, "title": "The Other Side of the Door", "isBonus": true }
+      ]
+    },
+    {
+      "name": "Speak Now",
+      "cover": "Speak Now.jpg",
+      "tracks": [
+        { "id": 301, "title": "Mine", "isBonus": false },
+        { "id": 302, "title": "Sparks Fly", "isBonus": false },
+        { "id": 303, "title": "Back to December", "isBonus": false },
+        { "id": 304, "title": "Speak Now", "isBonus": false },
+        { "id": 305, "title": "Dear John", "isBonus": false },
+        { "id": 306, "title": "Mean", "isBonus": false },
+        { "id": 307, "title": "The Story of Us", "isBonus": false },
+        { "id": 308, "title": "Never Grow Up", "isBonus": false },
+        { "id": 309, "title": "Enchanted", "isBonus": false },
+        { "id": 310, "title": "Better than Revenge", "isBonus": false },
+        { "id": 311, "title": "Innocent", "isBonus": false },
+        { "id": 312, "title": "Haunted", "isBonus": false },
+        { "id": 313, "title": "Last Kiss", "isBonus": false },
+        { "id": 314, "title": "Long Live", "isBonus": false },
+        { "id": 315, "title": "Ours", "isBonus": true },
+        { "id": 315, "title": "If This was a Movie", "isBonus": true },
+        { "id": 315, "title": "Superman", "isBonus": true }
+      ]
+    },
+    {
+      "name": "Red",
+      "cover": "",
+      "tracks": [
+        { "id": 401, "title": "", "isBonus": true },
+        { "id": 402, "title": "", "isBonus": true },
+        { "id": 403, "title": "", "isBonus": true },
+        { "id": 404, "title": "", "isBonus": true },
+        { "id": 405, "title": "", "isBonus": true },
+        { "id": 406, "title": "", "isBonus": true },
+        { "id": 407, "title": "", "isBonus": true },
+        { "id": 408, "title": "", "isBonus": true },
+        { "id": 409, "title": "", "isBonus": true },
+        { "id": 410, "title": "", "isBonus": true },
+        { "id": 411, "title": "", "isBonus": true },
+        { "id": 412, "title": "", "isBonus": true },
+        { "id": 413, "title": "", "isBonus": true },
+        { "id": 414, "title": "", "isBonus": true },
+        { "id": 415, "title": "", "isBonus": true }
+      ]
+    },
+    {
+      "name": "1989",
+      "cover": "1989.jpg",
+      "tracks": [
+        { "id": 501, "title": "", "isBonus": true },
+        { "id": 502, "title": "", "isBonus": true },
+        { "id": 503, "title": "", "isBonus": true },
+        { "id": 504, "title": "", "isBonus": true },
+        { "id": 505, "title": "", "isBonus": true },
+        { "id": 506, "title": "", "isBonus": true },
+        { "id": 507, "title": "", "isBonus": true },
+        { "id": 508, "title": "", "isBonus": true },
+        { "id": 509, "title": "", "isBonus": true },
+        { "id": 510, "title": "", "isBonus": true },
+        { "id": 511, "title": "", "isBonus": true },
+        { "id": 512, "title": "", "isBonus": true },
+        { "id": 513, "title": "", "isBonus": true },
+        { "id": 514, "title": "", "isBonus": true },
+        { "id": 515, "title": "", "isBonus": true }
+      ]
+    },
+    {
+      "name": "Reputation",
+      "cover": "",
+      "tracks": [
+        { "id": 601, "title": "" },
+        { "id": 602, "title": "" },
+        { "id": 603, "title": "" },
+        { "id": 604, "title": "" },
+        { "id": 605, "title": "" },
+        { "id": 606, "title": "" },
+        { "id": 607, "title": "" },
+        { "id": 608, "title": "" },
+        { "id": 609, "title": "" },
+        { "id": 610, "title": "" },
+        { "id": 611, "title": "" },
+        { "id": 612, "title": "" },
+        { "id": 613, "title": "" },
+        { "id": 614, "title": "" },
+        { "id": 615, "title": "" }
+      ]
+    },
+    {
+      "name": "Lover",
+      "cover": "",
+      "tracks": [
+        { "id": 701, "title": "" },
+        { "id": 702, "title": "" },
+        { "id": 703, "title": "" },
+        { "id": 704, "title": "" },
+        { "id": 705, "title": "" },
+        { "id": 706, "title": "" },
+        { "id": 707, "title": "" },
+        { "id": 708, "title": "" },
+        { "id": 709, "title": "" },
+        { "id": 710, "title": "" },
+        { "id": 711, "title": "" },
+        { "id": 712, "title": "" },
+        { "id": 713, "title": "" },
+        { "id": 714, "title": "" },
+        { "id": 715, "title": "" }
+      ]
+    },
+    {
+      "name": "Folklore",
+      "cover": "",
+      "tracks": [
+        { "id": 801, "title": "" },
+        { "id": 802, "title": "" },
+        { "id": 803, "title": "" },
+        { "id": 804, "title": "" },
+        { "id": 805, "title": "" },
+        { "id": 806, "title": "" },
+        { "id": 807, "title": "" },
+        { "id": 808, "title": "" },
+        { "id": 809, "title": "" },
+        { "id": 810, "title": "" },
+        { "id": 811, "title": "" },
+        { "id": 812, "title": "" },
+        { "id": 813, "title": "" },
+        { "id": 814, "title": "" },
+        { "id": 815, "title": "" }
+      ]
+    },
+    {
+      "name": "Evermore",
+      "cover": "",
+      "tracks": [
+        { "id": 901, "title": "" },
+        { "id": 902, "title": "" },
+        { "id": 903, "title": "" },
+        { "id": 904, "title": "" },
+        { "id": 905, "title": "" },
+        { "id": 906, "title": "" },
+        { "id": 907, "title": "" },
+        { "id": 908, "title": "" },
+        { "id": 909, "title": "" },
+        { "id": 910, "title": "" },
+        { "id": 911, "title": "" },
+        { "id": 912, "title": "" },
+        { "id": 913, "title": "" },
+        { "id": 914, "title": "" },
+        { "id": 915, "title": "" }
+      ]
+    },
+    {
+      "name": "Midnights",
+      "cover": "",
+      "tracks": [
+        { "id": 1001, "title": "" },
+        { "id": 1002, "title": "" },
+        { "id": 1003, "title": "" },
+        { "id": 1004, "title": "" },
+        { "id": 1005, "title": "" },
+        { "id": 1006, "title": "" },
+        { "id": 1007, "title": "" },
+        { "id": 1008, "title": "" },
+        { "id": 1009, "title": "" },
+        { "id": 1010, "title": "" },
+        { "id": 1011, "title": "" },
+        { "id": 1012, "title": "" },
+        { "id": 1013, "title": "" },
+        { "id": 1014, "title": "" },
+        { "id": 1015, "title": "" }
+      ]
+    },
+    {
+      "name": "The Tortured Poetes Department",
+      "cover": "",
+      "tracks": [
+        { "id": 1101, "title": "" },
+        { "id": 1102, "title": "" },
+        { "id": 1103, "title": "" },
+        { "id": 1104, "title": "" },
+        { "id": 1105, "title": "" },
+        { "id": 1106, "title": "" },
+        { "id": 1107, "title": "" },
+        { "id": 1108, "title": "" },
+        { "id": 1109, "title": "" },
+        { "id": 1110, "title": "" },
+        { "id": 1111, "title": "" },
+        { "id": 1112, "title": "" },
+        { "id": 1113, "title": "" },
+        { "id": 1114, "title": "" },
+        { "id": 1115, "title": "" }
+      ]
+    },
+    {
+      "name": "The Life of a Showgirl",
+      "cover": "",
+      "tracks": [
+        { "id": 1201, "title": "" },
+        { "id": 1202, "title": "" },
+        { "id": 1203, "title": "" },
+        { "id": 1204, "title": "" },
+        { "id": 1205, "title": "" },
+        { "id": 1206, "title": "" },
+        { "id": 1207, "title": "" },
+        { "id": 1208, "title": "" },
+        { "id": 1209, "title": "" },
+        { "id": 1210, "title": "" },
+        { "id": 1211, "title": "" },
+        { "id": 1212, "title": "" },
+        { "id": 1213, "title": "" },
+        { "id": 1214, "title": "" },
+        { "id": 1215, "title": "" }
+      ]
+    }
+  ]
+}

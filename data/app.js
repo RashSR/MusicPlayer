@@ -1,44 +1,43 @@
-    function sendCommand(command) {
-        console.log('Sending command:', command);
+let isShuffleEnabled = false;
+let isPlaying = false;
+let currentTrack = null;
 
-        // Later:
-        // fetch('/' + command)
+function sendCommand(command) {
+    console.log('Sending command:', command);
+    alert('Command sent: ' + command);
+}
 
-        alert('Command sent: ' + command);
+function toggleShuffle() {
+    isShuffleEnabled = !isShuffleEnabled;
+    const btn = document.getElementById('shuffleBtn');
+
+    if(isShuffleEnabled) {
+        btn.style.background = '#22c55e';
+    } else {
+        btn.style.background = '#7c3aed';
     }
 
-    let shuffleEnabled = false;
-    function toggleShuffle() {
-        shuffleEnabled = !shuffleEnabled;
-        const btn = document.getElementById('shuffleBtn');
+    console.log('Shuffle:', isShuffleEnabled);
+}
 
-        if(shuffleEnabled) {
-            btn.style.background = '#22c55e';
-        } else {
-            btn.style.background = '#7c3aed';
-        }
+function playTrack(trackNumber) {
+    console.log('Playing track:', trackNumber);
 
-        console.log('Shuffle:', shuffleEnabled);
+    // Later:
+    // fetch('/play?num=' + trackNumber)
+
+    alert('Playing track: ' + trackNumber);
+}
+
+function toggleAlbum(header) {
+    const trackList = header.nextElementSibling;
+    const arrow = header.querySelector('.arrow');
+
+    trackList.classList.toggle('collapsed');
+
+    if(trackList.classList.contains('collapsed')) {
+        arrow.innerHTML = '▶';
+    } else {
+        arrow.innerHTML = '▼';
     }
-
-    function playTrack(trackNumber) {
-      console.log('Playing track:', trackNumber);
-
-      // Later:
-      // fetch('/play?num=' + trackNumber)
-
-      alert('Playing track: ' + trackNumber);
-    }
-
-    function toggleAlbum(header) {
-        const trackList = header.nextElementSibling;
-        const arrow = header.querySelector('.arrow');
-
-        trackList.classList.toggle('collapsed');
-
-        if(trackList.classList.contains('collapsed')) {
-            arrow.innerHTML = '▶';
-        } else {
-            arrow.innerHTML = '▼';
-        }
-    }
+}
