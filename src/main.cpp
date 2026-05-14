@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <LittleFS.h>
 
 const char* ssid = "MusicPlayer";
 const char* password = "12345678";
@@ -9,6 +10,7 @@ ESP8266WebServer server(80);
 void setup() {
   Serial.begin(115200);
   delay(500);
+  LittleFS.begin();
 
   WiFi.softAP(ssid, password);
 
@@ -19,7 +21,15 @@ void setup() {
   server.on("/", []() {
     Serial.print("Client connected from: ");
     Serial.println(server.client().remoteIP());
-    server.send(200, "text/html", "<h1>Hello World - from PlatformIO</h1>");
+    Serial.println("ROOT requested");
+    File file = LittleFS.open("/index.html", "r");
+    if (!file) {
+      Serial.println("index.html NOT FOUND in LittleFS");
+      server.send(500, "text/plain", "File not found");
+      return;
+    }
+    server.streamFile(file, "text/html");
+    file.close();
   });
 
   server.on("/play", []() {
