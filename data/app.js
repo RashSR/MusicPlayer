@@ -129,12 +129,14 @@ function togglePlayback() {
     if(isPlaying){
         clearInterval(playbackTimer);
         isPlaying = false;
+        document.getElementById(`track-${currentTrack.id}`)?.classList.add('paused');
         console.log('Paused');
     } 
     else 
     {
         startPlayback();
         isPlaying = true;
+        document.getElementById(`track-${currentTrack.id}`)?.classList.remove('paused');
         console.log('Resumed');
     }
 }

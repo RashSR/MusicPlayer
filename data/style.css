@@ -221,9 +221,30 @@
       font-weight: 500;
     }
 
+    @keyframes pulseGlow {
+      0% {
+        box-shadow: 0 0 8px rgba(124, 58, 237, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 18px rgba(124, 58, 237, 0.7);
+      }
+      100% {
+        box-shadow: 0 0 8px rgba(124, 58, 237, 0.3);
+      }
+    }
+
     .track.active {
-      background: #4c1d95;
-      box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+      background: #3b1d6a;
+      border-left: 4px solid #7c3aed;
+      box-shadow: 0 0 12px rgba(124, 58, 237, 0.5);
+      transform: scale(1.01);
+      transition: all 0.2s ease;
+      animation: pulseGlow 2s infinite;
+    }
+
+    .track.paused {
+      opacity: 0.6;
+      animation: none;
     }
 
     .footer {
