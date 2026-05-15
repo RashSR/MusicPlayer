@@ -167,10 +167,6 @@
       font-size: 1.1rem;
     }
 
-    .track-list {
-      padding: 12px;
-    }
-
     .track {
       display: flex;
       justify-content: space-between;
