@@ -5,7 +5,7 @@ let songsData = null;
 let allTracks = [];
 let playbackTimer = null;
 let currentTime = 0;
-const songDuration = 127;
+const songDuration = 180;
 
 function sendCommand(command) {
     console.log('Sending command:', command);
