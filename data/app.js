@@ -22,7 +22,8 @@ function toggleShuffle() {
     {
         btn.style.background = '#22c55e';
         miniBtn?.classList.add('active');
-        playRandomTrack();
+        if(currentTrack == null)
+            playRandomTrack();
     }
     else
     {
