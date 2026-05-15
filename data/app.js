@@ -325,5 +325,36 @@ function updateMiniPlayer(track, album) {
     mini.classList.remove('hidden');
 }
 
+function initMiniSeek() {
+    const miniBar = document.querySelector('.mini-progress');
+    if(!miniBar) 
+        return;
+
+    miniBar.addEventListener('click', (e) => {
+        const rect = miniBar.getBoundingClientRect();
+        let x = e.clientX - rect.left;
+        x = Math.max(0, Math.min(x, rect.width));
+        const percent = x / rect.width;
+        currentTime = percent * songDuration;
+        updateProgressBar();
+    });
+}
+
+function seekMiniFromEvent(e) {
+    const miniBar = document.querySelector('.mini-progress');
+    if(!miniBar || !currentTrack) 
+        return;
+
+    const rect = miniBar.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    x = Math.max(0, Math.min(x, rect.width));
+    const percent = x / rect.width;
+    currentTime = percent * songDuration;
+    updateProgressBar();
+}
+
 loadSongs();
-initSeek();
+window.addEventListener('DOMContentLoaded', () => {
+    initMiniSeek();
+});
+initMiniSeek();
