@@ -1,11 +1,12 @@
 let isShuffleEnabled = false;
+let isSeeking = false;
 let isPlaying = false;
 let currentTrack = null;
 let songsData = null;
 let allTracks = [];
 let playbackTimer = null;
 let currentTime = 0;
-const songDuration = 180;
+let songDuration = 180;
 
 function sendCommand(command) {
     console.log('Sending command:', command);
@@ -224,17 +225,55 @@ function initSeek() {
     if(!progressBar) 
         return;
 
+    // click seek
     progressBar.addEventListener('click', (e) => {
-        if(!currentTrack || !songDuration) 
-            return;
-
-        const rect = progressBar.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const percent = clickX / rect.width;
-        currentTime = percent * songDuration;
-        updateProgressBar();
-        console.log("Seek to:", currentTime);
+        seekFromEvent(e);
     });
+
+    // start drag
+    progressBar.addEventListener('mousedown', (e) => {
+        isSeeking = true;
+        seekFromEvent(e);
+    });
+
+    // drag move
+    document.addEventListener('mousemove', (e) => {
+        if(!isSeeking) return;
+        seekFromEvent(e);
+    });
+
+    // stop drag
+    document.addEventListener('mouseup', () => {
+        isSeeking = false;
+    });
+
+    //for touchsupport
+    progressBar.addEventListener('touchstart', (e) => {
+        isSeeking = true;
+        seekFromEvent(e.touches[0]);
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if(!isSeeking) return;
+        seekFromEvent(e.touches[0]);
+    });
+
+    document.addEventListener('touchend', () => {
+        isSeeking = false;
+    });
+}
+
+function seekFromEvent(e) {
+    const progressBar = document.querySelector('.progress');
+    if(!progressBar || !currentTrack)
+        return;
+
+    const rect = progressBar.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    x = Math.max(0, Math.min(x, rect.width));
+    const percent = x / rect.width;
+    currentTime = percent * songDuration;
+    updateProgressBar();
 }
 
 loadSongs();

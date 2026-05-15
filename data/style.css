@@ -103,6 +103,7 @@
       overflow: hidden;
       margin-bottom: 12px;
       cursor: pointer;
+      touch-action: none;
     }
 
     .progress-fill {
