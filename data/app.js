@@ -219,4 +219,23 @@ function formatTime(seconds) {
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+function initSeek() {
+    const progressBar = document.querySelector('.progress');
+    if(!progressBar) 
+        return;
+
+    progressBar.addEventListener('click', (e) => {
+        if(!currentTrack || !songDuration) 
+            return;
+
+        const rect = progressBar.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percent = clickX / rect.width;
+        currentTime = percent * songDuration;
+        updateProgressBar();
+        console.log("Seek to:", currentTime);
+    });
+}
+
 loadSongs();
+initSeek();
