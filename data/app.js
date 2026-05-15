@@ -157,7 +157,11 @@ function updateProgressBar() {
         return;
 
     const progress = (currentTime / songDuration) * 100;
+    const miniBar = document.querySelector('.mini-progress-fill');
     bar.style.width = `${progress}%`;
+    if (miniBar) {
+        miniBar.style.width = `${progress}%`;
+    }
     timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(songDuration)}`;
 }
 
