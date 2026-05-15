@@ -327,16 +327,44 @@ function updateMiniPlayer(track, album) {
 
 function initMiniSeek() {
     const miniBar = document.querySelector('.mini-progress');
-    if(!miniBar) 
+    if (!miniBar)
         return;
 
+    // click
     miniBar.addEventListener('click', (e) => {
-        const rect = miniBar.getBoundingClientRect();
-        let x = e.clientX - rect.left;
-        x = Math.max(0, Math.min(x, rect.width));
-        const percent = x / rect.width;
-        currentTime = percent * songDuration;
-        updateProgressBar();
+        seekMiniFromEvent(e);
+    });
+
+    // start drag
+    miniBar.addEventListener('mousedown', (e) => {
+        isSeeking = true;
+        seekMiniFromEvent(e);
+    });
+
+    // drag move (global so it works outside bar)
+    document.addEventListener('mousemove', (e) => {
+        if (!isSeeking) return;
+        seekMiniFromEvent(e);
+    });
+
+    // stop drag
+    document.addEventListener('mouseup', () => {
+        isSeeking = false;
+    });
+
+    // touch support (mobile)
+    miniBar.addEventListener('touchstart', (e) => {
+        isSeeking = true;
+        seekMiniFromEvent(e.touches[0]);
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isSeeking) return;
+        seekMiniFromEvent(e.touches[0]);
+    });
+
+    document.addEventListener('touchend', () => {
+        isSeeking = false;
     });
 }
 

@@ -343,6 +343,7 @@
       cursor: pointer;
       position: relative;
       pointer-events: auto;
+      user-select: none;
     }
 
     .mini-progress-fill {
