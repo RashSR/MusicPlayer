@@ -353,3 +353,13 @@
       transition: width 0.2s linear;
       pointer-events: none;
     }
+
+    .mini-time {
+      font-size: 12px;
+      color: #b3b3b3;
+      margin-top: 4px;
+      display: flex;
+      justify-content: flex-end;
+      padding-right: 4px;
+      font-variant-numeric: tabular-nums;
+    }

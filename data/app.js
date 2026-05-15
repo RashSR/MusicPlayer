@@ -153,16 +153,24 @@ function togglePlayback() {
 function updateProgressBar() {
     const bar = document.querySelector('.progress-fill');
     const timeDisplay = document.querySelector('.time-display');
-    if(!bar || !timeDisplay) 
-        return;
-
-    const progress = (currentTime / songDuration) * 100;
     const miniBar = document.querySelector('.mini-progress-fill');
-    bar.style.width = `${progress}%`;
-    if (miniBar) {
+    const miniTime = document.querySelector('.mini-time');
+    const progress = (currentTime / songDuration) * 100;
+
+    if(bar) 
+        bar.style.width = `${progress}%`;
+
+    if(miniBar)
         miniBar.style.width = `${progress}%`;
-    }
-    timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(songDuration)}`;
+
+    const timeText =
+        `${formatTime(currentTime)} / ${formatTime(songDuration)}`;
+
+    if(timeDisplay)
+        timeDisplay.textContent = timeText;
+
+    if(miniTime)
+        miniTime.textContent = timeText;
 }
 
 function toggleAlbum(header) {
