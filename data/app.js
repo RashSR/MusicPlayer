@@ -86,6 +86,7 @@ function playTrack(trackId) {
         return;
 
     currentTrack = foundTrack;
+    openOnlyThisAlbum(foundAlbum.name);
     document.querySelectorAll('.track').forEach(track => {
         track.classList.remove('active');
     });
@@ -276,6 +277,28 @@ function seekFromEvent(e) {
     const percent = x / rect.width;
     currentTime = percent * songDuration;
     updateProgressBar();
+}
+
+function openOnlyThisAlbum(albumName) {
+
+    const albums = document.querySelectorAll('.album');
+
+    albums.forEach(album => {
+
+        const header = album.querySelector('.album-header');
+        const trackList = album.querySelector('.track-list');
+        const arrow = album.querySelector('.arrow');
+
+        const name = header.querySelector('h3').innerText;
+
+        if(name === albumName) {
+            trackList.classList.remove('collapsed');
+            arrow.innerHTML = '▼';
+        } else {
+            trackList.classList.add('collapsed');
+            arrow.innerHTML = '▶';
+        }
+    });
 }
 
 loadSongs();
