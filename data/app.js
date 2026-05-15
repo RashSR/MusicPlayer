@@ -5,7 +5,7 @@ let songsData = null;
 let allTracks = [];
 let playbackTimer = null;
 let currentTime = 0;
-let songDuration = 180;
+const songDuration = 127;
 
 function sendCommand(command) {
     console.log('Sending command:', command);
@@ -135,8 +135,14 @@ function togglePlayback() {
 }
 
 function updateProgressBar() {
+    const bar = document.querySelector('.progress-fill');
+    const timeDisplay = document.querySelector('.time-display');
+    if(!bar || !timeDisplay) 
+        return;
+
     const progress = (currentTime / songDuration) * 100;
-    document.querySelector('.progress-fill').style.width = `${progress}%`;
+    bar.style.width = `${progress}%`;
+    timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(songDuration)}`;
 }
 
 function toggleAlbum(header) {
@@ -201,6 +207,12 @@ function createTrackHTML(track, index) {
             </button>
         </div>
     `;
+}
+
+function formatTime(seconds) {
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 loadSongs();
