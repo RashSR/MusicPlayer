@@ -42,6 +42,13 @@ function playTrack(trackId) {
     if(!foundTrack) return;
 
     currentTrack = foundTrack;
+    document.querySelectorAll('.track').forEach(track => {
+        track.classList.remove('active');
+    });
+
+    document
+        .getElementById(`track-${trackId}`)
+        .classList.add('active');
 
     document.getElementById('currentSong').innerText =
         foundTrack.title;
@@ -89,7 +96,7 @@ async function loadSongs() {
         album.tracks.forEach((track, index) => {
 
             tracksHTML += `
-                <div class="track">
+                <div class="track" id="track-${track.id}">
                     <div class="track-left">
                         <div class="track-number">${index + 1}</div>
                         <div class="track-name">${track.title}</div>
