@@ -408,8 +408,8 @@ function seekMiniFromEvent(e) {
     updateProgressBar();
 }
 
-loadSongs();
 window.addEventListener('DOMContentLoaded', () => {
+    loadSongs();
     initMiniSeek();
+    initSeek();
 });
-initMiniSeek();
