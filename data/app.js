@@ -16,16 +16,35 @@ function sendCommand(command) {
 function toggleShuffle() {
     isShuffleEnabled = !isShuffleEnabled;
     const btn = document.getElementById('shuffleBtn');
+    const miniBtn = document.getElementById('miniShuffleBtn');
 
     if(isShuffleEnabled)
     {
         btn.style.background = '#22c55e';
+        miniBtn?.classList.add('active');
         playRandomTrack();
     }
-    else 
+    else
+    {
         btn.style.background = '#7c3aed';
-
+        miniBtn?.classList.remove('active');
+    }
+    
+    syncShuffleUI();
     console.log('Shuffle:', isShuffleEnabled);
+}
+
+function syncShuffleUI() {
+    const miniBtn = document.getElementById('miniShuffleBtn');
+    const mainBtn = document.getElementById('shuffleBtn');
+
+    if (isShuffleEnabled) {
+        miniBtn?.classList.add('active');
+        mainBtn.style.background = '#22c55e';
+    } else {
+        miniBtn?.classList.remove('active');
+        mainBtn.style.background = '#7c3aed';
+    }
 }
 
 function playRandomTrack() {
