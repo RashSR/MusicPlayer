@@ -168,12 +168,17 @@
     }
 
     .track {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
       align-items: center;
       padding: 12px;
       border-radius: 10px;
       transition: 0.2s;
+    }
+
+    .track button {
+      width: 100%;
+      justify-self: end;
     }
 
     .track:hover {
@@ -184,6 +189,7 @@
       display: flex;
       gap: 12px;
       align-items: center;
+      min-width: 0;
     }
 
     .track-number {
@@ -193,6 +199,9 @@
     }
 
     .track-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-weight: 500;
     }
 
