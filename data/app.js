@@ -12,57 +12,62 @@ function toggleShuffle() {
     isShuffleEnabled = !isShuffleEnabled;
     const btn = document.getElementById('shuffleBtn');
 
-    if(isShuffleEnabled) {
+    if(isShuffleEnabled)
+    {
         btn.style.background = '#22c55e';
-    } else {
-        btn.style.background = '#7c3aed';
+        playRandomTrack();
+
     }
+    else 
+        btn.style.background = '#7c3aed';
 
     console.log('Shuffle:', isShuffleEnabled);
 }
 
-function playTrack(trackId) {
+function playRandomTrack() {
+    const allTracks = [];
 
+    songsData.albums.forEach(album => {
+        album.tracks.forEach(track => {
+            allTracks.push(track.id);
+        });
+    });
+
+    const randomIndex = Math.floor(Math.random() * allTracks.length);
+    const randomTrackId = allTracks[randomIndex];
+    playTrack(randomTrackId);
+}
+
+function playTrack(trackId) {
     let foundTrack = null;
     let foundAlbum = null;
 
     songsData.albums.forEach(album => {
-
         album.tracks.forEach(track => {
-
             if(track.id === trackId) {
                 foundTrack = track;
                 foundAlbum = album;
             }
-
         });
-
     });
 
-    if(!foundTrack) return;
+    if(!foundTrack) 
+        return;
 
     currentTrack = foundTrack;
     document.querySelectorAll('.track').forEach(track => {
         track.classList.remove('active');
     });
 
-    document
-        .getElementById(`track-${trackId}`)
-        .classList.add('active');
-
-    document.getElementById('currentSong').innerText =
-        foundTrack.title;
-
-    document.getElementById('currentAlbum').innerText =
-        foundAlbum.name;
+    document.getElementById(`track-${trackId}`).classList.add('active');
+    document.getElementById('currentSong').innerText = foundTrack.title;
+    document.getElementById('currentAlbum').innerText = foundAlbum.name;
 
     const cover = document.getElementById('albumCover');
-
     cover.src = "albumCover/" + foundAlbum.cover;
     cover.classList.remove('hidden');
 
     console.log('Now playing:', foundTrack.title);
-
     fetch('/play?track=' + trackId);
 }
 
@@ -71,30 +76,24 @@ function toggleAlbum(header) {
     const arrow = header.querySelector('.arrow');
 
     trackList.classList.toggle('collapsed');
-
-    if(trackList.classList.contains('collapsed')) {
+    if(trackList.classList.contains('collapsed')) 
         arrow.innerHTML = '▶';
-    } else {
+    else
         arrow.innerHTML = '▼';
-    }
 }
 
 async function loadSongs() {
-
     const response = await fetch('songs.json');
     songsData = await response.json();
-
     const container = document.getElementById('albumsContainer');
 
     songsData.albums.forEach(album => {
-
         const albumDiv = document.createElement('div');
         albumDiv.className = 'album';
 
         let tracksHTML = '';
 
         album.tracks.forEach((track, index) => {
-
             tracksHTML += `
                 <div class="track" id="track-${track.id}">
                     <div class="track-left">
@@ -108,7 +107,6 @@ async function loadSongs() {
                 </div>
             `;
         });
-
         albumDiv.innerHTML = `
             <div class="album-header" onclick="toggleAlbum(this)">
                 <h3>${album.name}</h3>
@@ -122,7 +120,6 @@ async function loadSongs() {
                 ${tracksHTML}
             </div>
         `;
-
         container.appendChild(albumDiv);
     });
 }
