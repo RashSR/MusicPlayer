@@ -92,16 +92,20 @@ function playTrack(trackId) {
     document.getElementById(`track-${trackId}`).classList.add('active');
     document.getElementById('currentSong').innerText = foundTrack.title;
     document.getElementById('currentAlbum').innerText = foundAlbum.name;
-
     const cover = document.getElementById('albumCover');
     cover.src = "albumCover/" + foundAlbum.cover;
-    cover.classList.remove('hidden');
+    showCoverAndProgressbar(cover);
 
     isPlaying = true;
     currentTime = 0;
     updateProgressBar();    
     startPlayback();
     console.log('Now playing:', foundTrack.title);
+}
+
+function showCoverAndProgressbar(cover){
+    cover.classList.remove('hidden');
+    document.getElementById('progressContainer').classList.remove('hidden');
 }
 
 function startPlayback() {
