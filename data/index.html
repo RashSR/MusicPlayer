@@ -38,7 +38,7 @@
           <div class="controls">
             <button id="shuffleBtn" onclick="toggleShuffle()">🔀 Shuffle</button>
             <button onclick="playPreviousTrack()">⏮ Previous</button>
-            <button onclick="togglePlayback()">⏯ Play / Pause</button>
+            <button id="playPauseBtn" onclick="togglePlayback()">⏯ Play / Pause</button>
             <button onclick="playNextTrack()">⏭ Next</button>
           </div>
         </div>
@@ -69,5 +69,21 @@
     </div>
   </div>
   <script src="app.js"></script>
+
+  <div id="miniPlayer" class="mini-player hidden">
+    <div class="mini-left">
+      <img id="miniCover" src="" />
+      <div class="mini-info">
+        <div id="miniTitle">No song</div>
+        <div id="miniAlbum">—</div>
+      </div>
+    </div>
+
+    <div class="mini-controls">
+      <button onclick="playPreviousTrack()">⏮</button>
+      <button onclick="togglePlayback()" id="miniPlayBtn">⏯</button>
+      <button onclick="playNextTrack()">⏭</button>
+    </div>
+  </div>
 </body>
 </html>

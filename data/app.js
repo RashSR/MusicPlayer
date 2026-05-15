@@ -102,6 +102,7 @@ function playTrack(trackId) {
     currentTime = 0;
     updateProgressBar();    
     startPlayback();
+    updateMiniPlayer(foundTrack, foundAlbum);
     console.log('Now playing:', foundTrack.title);
 }
 
@@ -124,20 +125,27 @@ function startPlayback() {
 }
 
 function togglePlayback() {
+    const btn = document.getElementById('playPauseBtn');
+    const miniBtn = document.getElementById('miniPlayBtn');
+
     if(!currentTrack) 
         return;
 
     if(isPlaying){
         clearInterval(playbackTimer);
         isPlaying = false;
+        btn.classList.add('paused');
         document.getElementById(`track-${currentTrack.id}`)?.classList.add('paused');
+        miniBtn.innerText = "⏸";
         console.log('Paused');
     } 
     else 
     {
         startPlayback();
         isPlaying = true;
+        btn.classList.remove('paused');
         document.getElementById(`track-${currentTrack.id}`)?.classList.remove('paused');
+        miniBtn.innerText = "▶";
         console.log('Resumed');
     }
 }
@@ -299,6 +307,18 @@ function openOnlyThisAlbum(albumName) {
             arrow.innerHTML = '▶';
         }
     });
+}
+
+function updateMiniPlayer(track, album) {
+    const mini = document.getElementById('miniPlayer');
+
+    document.getElementById('miniTitle').innerText = track.title;
+    document.getElementById('miniAlbum').innerText = album.name;
+
+    document.getElementById('miniCover').src =
+        "albumCover/" + album.cover;
+
+    mini.classList.remove('hidden');
 }
 
 loadSongs();
