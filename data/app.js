@@ -2,6 +2,7 @@ let isShuffleEnabled = false;
 let isPlaying = false;
 let currentTrack = null;
 let songsData = null;
+let allTracks = [];
 
 function sendCommand(command) {
     console.log('Sending command:', command);
@@ -16,7 +17,6 @@ function toggleShuffle() {
     {
         btn.style.background = '#22c55e';
         playRandomTrack();
-
     }
     else 
         btn.style.background = '#7c3aed';
@@ -25,17 +25,44 @@ function toggleShuffle() {
 }
 
 function playRandomTrack() {
-    const allTracks = [];
-
-    songsData.albums.forEach(album => {
-        album.tracks.forEach(track => {
-            allTracks.push(track.id);
-        });
-    });
-
     const randomIndex = Math.floor(Math.random() * allTracks.length);
-    const randomTrackId = allTracks[randomIndex];
-    playTrack(randomTrackId);
+    const randomTrack = allTracks[randomIndex];
+    playTrack(randomTrack.id);
+}
+
+function playNextTrack() {
+    if(!currentTrack) 
+        return;
+
+    if(isShuffleEnabled){
+        playRandomTrack();
+        return;
+    }
+
+    const currentIndex =
+        allTracks.findIndex(
+            track => track.id === currentTrack.id
+        );
+
+    let nextIndex = currentIndex + 1;
+    if(nextIndex >= allTracks.length)
+        nextIndex = 0;
+    playTrack(allTracks[nextIndex].id);
+}
+
+function playPreviousTrack() {
+    if(!currentTrack) 
+        return;
+
+    const currentIndex =
+        allTracks.findIndex(
+            track => track.id === currentTrack.id
+        );
+
+    let previousIndex = currentIndex - 1;
+    if(previousIndex < 0) 
+        previousIndex = allTracks.length - 1;
+    playTrack(allTracks[previousIndex].id);
 }
 
 function playTrack(trackId) {
@@ -85,6 +112,7 @@ function toggleAlbum(header) {
 async function loadSongs() {
     const response = await fetch('songs.json');
     songsData = await response.json();
+    allTracks = [];
     const container = document.getElementById('albumsContainer');
 
     songsData.albums.forEach(album => {
@@ -94,18 +122,13 @@ async function loadSongs() {
         let tracksHTML = '';
 
         album.tracks.forEach((track, index) => {
-            tracksHTML += `
-                <div class="track" id="track-${track.id}">
-                    <div class="track-left">
-                        <div class="track-number">${index + 1}</div>
-                        <div class="track-name">${track.title}</div>
-                    </div>
-
-                    <button onclick="playTrack(${track.id})">
-                        Play
-                    </button>
-                </div>
-            `;
+            allTracks.push({
+                id: track.id,
+                title: track.title,
+                album: album.name,
+                cover: album.cover
+            });
+            tracksHTML += createTrackHTML(track, index);
         });
         albumDiv.innerHTML = `
             <div class="album-header" onclick="toggleAlbum(this)">
@@ -122,6 +145,21 @@ async function loadSongs() {
         `;
         container.appendChild(albumDiv);
     });
+}
+
+function createTrackHTML(track, index) {
+    return `
+        <div class="track" id="track-${track.id}">
+            <div class="track-left">
+                <div class="track-number">${index + 1}</div>
+                <div class="track-name">${track.title}</div>
+            </div>
+
+            <button onclick="playTrack(${track.id})">
+                Play
+            </button>
+        </div>
+    `;
 }
 
 loadSongs();
