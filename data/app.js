@@ -3,6 +3,9 @@ let isPlaying = false;
 let currentTrack = null;
 let songsData = null;
 let allTracks = [];
+let playbackTimer = null;
+let currentTime = 0;
+let songDuration = 180;
 
 function sendCommand(command) {
     console.log('Sending command:', command);
@@ -94,8 +97,46 @@ function playTrack(trackId) {
     cover.src = "albumCover/" + foundAlbum.cover;
     cover.classList.remove('hidden');
 
+    isPlaying = true;
+    currentTime = 0;
+    updateProgressBar();    
+    startPlayback();
     console.log('Now playing:', foundTrack.title);
-    fetch('/play?track=' + trackId);
+}
+
+function startPlayback() {
+    clearInterval(playbackTimer);
+    playbackTimer = setInterval(() => {
+        currentTime++;
+        updateProgressBar();
+        if(currentTime >= songDuration) {
+            clearInterval(playbackTimer);
+            playNextTrack();
+        }
+
+    }, 1000);
+}
+
+function togglePlayback() {
+    if(!currentTrack) 
+        return;
+
+    if(isPlaying){
+        clearInterval(playbackTimer);
+        isPlaying = false;
+        console.log('Paused');
+    } 
+    else 
+    {
+        startPlayback();
+        isPlaying = true;
+        console.log('Resumed');
+    }
+}
+
+function updateProgressBar() {
+    const progress = (currentTime / songDuration) * 100;
+    document.querySelector('.progress-fill').style.width = `${progress}%`;
 }
 
 function toggleAlbum(header) {
