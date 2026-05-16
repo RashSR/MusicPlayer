@@ -164,7 +164,7 @@ function togglePlayback() {
         isPlaying = false;
         btn.classList.add('paused');
         document.getElementById(`track-${currentTrack.id}`)?.classList.add('paused');
-        miniBtn.innerText = "⏸";
+        miniBtn.innerText = "▶";
         console.log('Paused');
     } 
     else 
@@ -173,7 +173,7 @@ function togglePlayback() {
         isPlaying = true;
         btn.classList.remove('paused');
         document.getElementById(`track-${currentTrack.id}`)?.classList.remove('paused');
-        miniBtn.innerText = "▶";
+        miniBtn.innerText = "⏸";
         console.log('Resumed');
     }
 }
