@@ -263,42 +263,52 @@ function formatTime(seconds) {
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-function initSeek() {
-    const progressBar = document.querySelector('.progress');
-    if(!progressBar) 
+function initSeek(barSelector) {
+    const bar = document.querySelector(barSelector);
+    if(!bar)
         return;
 
-    // click seek
-    progressBar.addEventListener('click', (e) => {
-        seekFromEvent(e);
-    });
+    function handleSeek(e){
+        const rect = bar.getBoundingClientRect();
+        let clientX = e.clientX;
+        if (e.touches)
+            clientX = e.touches[0].clientX;
 
-    // start drag
-    progressBar.addEventListener('mousedown', (e) => {
+        let x = clientX - rect.left;
+        x = Math.max(0, Math.min(x, rect.width));
+        const percent = x / rect.width;
+        currentTime = percent * songDuration;
+        updateProgressBar();
+    }
+
+    bar.addEventListener('click', handleSeek);
+
+    bar.addEventListener('mousedown', (e) => {
         isSeeking = true;
-        seekFromEvent(e);
+        handleSeek(e);
     });
 
-    // drag move
     document.addEventListener('mousemove', (e) => {
-        if(!isSeeking) return;
-        seekFromEvent(e);
+        if (!isSeeking)
+            return;
+
+        handleSeek(e);
     });
 
-    // stop drag
     document.addEventListener('mouseup', () => {
         isSeeking = false;
     });
 
-    //for touchsupport
-    progressBar.addEventListener('touchstart', (e) => {
+    bar.addEventListener('touchstart', (e) => {
         isSeeking = true;
-        seekFromEvent(e.touches[0]);
+        handleSeek(e);
     });
 
     document.addEventListener('touchmove', (e) => {
-        if(!isSeeking) return;
-        seekFromEvent(e.touches[0]);
+        if (!isSeeking)
+            return;
+
+        handleSeek(e);
     });
 
     document.addEventListener('touchend', () => {
@@ -353,49 +363,6 @@ function updateMiniPlayer(track, album) {
     mini.classList.remove('hidden');
 }
 
-function initMiniSeek() {
-    const miniBar = document.querySelector('.mini-progress');
-    if (!miniBar)
-        return;
-
-    // click
-    miniBar.addEventListener('click', (e) => {
-        seekMiniFromEvent(e);
-    });
-
-    // start drag
-    miniBar.addEventListener('mousedown', (e) => {
-        isSeeking = true;
-        seekMiniFromEvent(e);
-    });
-
-    // drag move (global so it works outside bar)
-    document.addEventListener('mousemove', (e) => {
-        if (!isSeeking) return;
-        seekMiniFromEvent(e);
-    });
-
-    // stop drag
-    document.addEventListener('mouseup', () => {
-        isSeeking = false;
-    });
-
-    // touch support (mobile)
-    miniBar.addEventListener('touchstart', (e) => {
-        isSeeking = true;
-        seekMiniFromEvent(e.touches[0]);
-    });
-
-    document.addEventListener('touchmove', (e) => {
-        if (!isSeeking) return;
-        seekMiniFromEvent(e.touches[0]);
-    });
-
-    document.addEventListener('touchend', () => {
-        isSeeking = false;
-    });
-}
-
 function seekMiniFromEvent(e) {
     const miniBar = document.querySelector('.mini-progress');
     if(!miniBar || !currentTrack) 
@@ -411,6 +378,6 @@ function seekMiniFromEvent(e) {
 
 window.addEventListener('DOMContentLoaded', () => {
     loadSongs();
-    initMiniSeek();
-    initSeek();
+    initSeek('.progress');
+    initSeek('.mini-progress');
 });
