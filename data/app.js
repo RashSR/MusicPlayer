@@ -8,6 +8,14 @@ let playbackTimer = null;
 let currentTime = 0;
 let songDuration = 180;
 
+const domElements = {
+    currentSong: document.getElementById('currentSong'),
+    currentAlbum: document.getElementById('currentAlbum'),
+    albumCover: document.getElementById('albumCover'),
+    progressFill: document.querySelector('.progress-fill'),
+    timeDisplay: document.querySelector('.time-display'),
+};
+
 function sendCommand(command) {
     console.log('Sending command:', command);
     alert('Command sent: ' + command);
@@ -15,36 +23,36 @@ function sendCommand(command) {
 
 function toggleShuffle() {
     isShuffleEnabled = !isShuffleEnabled;
-    const btn = document.getElementById('shuffleBtn');
-    const miniBtn = document.getElementById('miniShuffleBtn');
+    const mainShuffleBtn = document.getElementById('shuffleBtn');
+    const miniShuffleBtn = document.getElementById('miniShuffleBtn');
 
     if(isShuffleEnabled)
     {
-        btn.style.background = '#22c55e';
-        miniBtn?.classList.add('active');
+        mainShuffleBtn.style.background = '#22c55e';
+        miniShuffleBtn?.classList.add('active');
         if(currentTrack == null)
             playRandomTrack();
     }
     else
     {
-        btn.style.background = '#7c3aed';
-        miniBtn?.classList.remove('active');
+        mainShuffleBtn.style.background = '#7c3aed';
+        miniShuffleBtn?.classList.remove('active');
     }
     
-    syncShuffleUI();
+    syncShuffleUI(mainShuffleBtn, miniShuffleBtn);
     console.log('Shuffle:', isShuffleEnabled);
 }
 
-function syncShuffleUI() {
-    const miniBtn = document.getElementById('miniShuffleBtn');
-    const mainBtn = document.getElementById('shuffleBtn');
-
-    if (isShuffleEnabled) {
-        miniBtn?.classList.add('active');
-        mainBtn.style.background = '#22c55e';
-    } else {
-        miniBtn?.classList.remove('active');
-        mainBtn.style.background = '#7c3aed';
+function syncShuffleUI(mainShuffleBtn, miniShuffleBtn) {
+    if(isShuffleEnabled)
+    {
+        miniShuffleBtn?.classList.add('active');
+        mainShuffleBtn.style.background = '#22c55e';
+    } 
+    else 
+    {
+        miniShuffleBtn?.classList.remove('active');
+        mainShuffleBtn.style.background = '#7c3aed';
     }
 }
 
@@ -63,11 +71,7 @@ function playNextTrack() {
         return;
     }
 
-    const currentIndex =
-        allTracks.findIndex(
-            track => track.id === currentTrack.id
-        );
-
+    const currentIndex = getCurrentTrackIndex();
     let nextIndex = currentIndex + 1;
     if(nextIndex >= allTracks.length)
         nextIndex = 0;
@@ -78,15 +82,19 @@ function playPreviousTrack() {
     if(!currentTrack) 
         return;
 
-    const currentIndex =
-        allTracks.findIndex(
-            track => track.id === currentTrack.id
-        );
-
+    const currentIndex = getCurrentTrackIndex();
     let previousIndex = currentIndex - 1;
     if(previousIndex < 0) 
         previousIndex = allTracks.length - 1;
     playTrack(allTracks[previousIndex].id);
+}
+
+function getCurrentTrackIndex(){
+    const currentIndex =
+        allTracks.findIndex(
+            track => track.id === currentTrack.id
+        );
+    return currentIndex;
 }
 
 function playTrack(trackId) {
@@ -112,9 +120,9 @@ function playTrack(trackId) {
     });
 
     document.getElementById(`track-${trackId}`).classList.add('active');
-    document.getElementById('currentSong').innerText = foundTrack.title;
-    document.getElementById('currentAlbum').innerText = foundAlbum.name;
-    const cover = document.getElementById('albumCover');
+    domElements.currentSong.innerText = foundTrack.title;
+    domElements.currentAlbum.innerText = foundAlbum.name;
+    const cover = domElements.albumCover;
     cover.src = "albumCover/" + foundAlbum.cover;
     showCoverAndProgressbar(cover);
 
@@ -171,10 +179,10 @@ function togglePlayback() {
 }
 
 function updateProgressBar() {
-    const bar = document.querySelector('.progress-fill');
-    const timeDisplay = document.querySelector('.time-display');
+    const bar = domElements.progressFill;
+    const timeDisplay = domElements.timeDisplay;
     const miniBar = document.querySelector('.mini-progress-fill');
-    const miniTime = document.querySelector('.mini-time');
+    const miniTime = document.querySelector('.mini-time'); 
     const progress = (currentTime / songDuration) * 100;
 
     if(bar) 
@@ -316,19 +324,6 @@ function initSeek(barSelector) {
     });
 }
 
-function seekFromEvent(e) {
-    const progressBar = document.querySelector('.progress');
-    if(!progressBar || !currentTrack)
-        return;
-
-    const rect = progressBar.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    x = Math.max(0, Math.min(x, rect.width));
-    const percent = x / rect.width;
-    currentTime = percent * songDuration;
-    updateProgressBar();
-}
-
 function openOnlyThisAlbum(albumName) {
 
     const albums = document.querySelectorAll('.album');
@@ -353,27 +348,10 @@ function openOnlyThisAlbum(albumName) {
 
 function updateMiniPlayer(track, album) {
     const mini = document.getElementById('miniPlayer');
-
     document.getElementById('miniTitle').innerText = track.title;
     document.getElementById('miniAlbum').innerText = album.name;
-
-    document.getElementById('miniCover').src =
-        "albumCover/" + album.cover;
-
+    document.getElementById('miniCover').src = "albumCover/" + album.cover;
     mini.classList.remove('hidden');
-}
-
-function seekMiniFromEvent(e) {
-    const miniBar = document.querySelector('.mini-progress');
-    if(!miniBar || !currentTrack) 
-        return;
-
-    const rect = miniBar.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    x = Math.max(0, Math.min(x, rect.width));
-    const percent = x / rect.width;
-    currentTime = percent * songDuration;
-    updateProgressBar();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
