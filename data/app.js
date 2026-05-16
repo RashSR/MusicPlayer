@@ -132,6 +132,7 @@ function playTrack(trackId) {
     startPlayback();
     updateMiniPlayer(foundTrack, foundAlbum);
     console.log('Now playing:', foundTrack.title);
+    fetch(`/play?id=${trackId}`);
 }
 
 function showCoverAndProgressbar(cover){
