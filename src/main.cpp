@@ -1,11 +1,11 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
 #include <LittleFS.h>
+#include <WiFi.h>
+#include <WebServer.h>
 
 const char* ssid = "MusicPlayer";
 const char* password = "12345678";
-ESP8266WebServer server(80);
+WebServer server(80);
 
 void handleLandingPage(){
   Serial.print("Client connected from: ");
