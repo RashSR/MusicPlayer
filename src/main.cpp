@@ -4,16 +4,11 @@
 #include <WebServer.h>
 #include "wifi_credentials.h"
 #include "DFPlayerDiagnostic.h"
-
-#define ENABLE_LED_STRIP_TEST 1
-
-#if ENABLE_LED_STRIP_TEST
-#include "LedStripTest.h"
-LedStripTest ledStripTest;
-#endif
+#include "LedAlbumLighting.h"
 
 HardwareSerial dfSerial(1);
 DFPlayerDiagnostic dfPlayerDiagnostic(dfSerial);
+LedAlbumLighting ledAlbumLighting;
 WebServer server(80);
 bool wasConnectedToWiFi = false;
 bool wifiConfigured = false;
@@ -164,14 +159,39 @@ bool isValidMetadataText(const String& value, size_t maxLength) {
   return true;
 }
 
+bool parseRgbColor(const String& text, uint32_t& color) {
+  if (text.length() != 7 || text[0] != '#') {
+    return false;
+  }
+
+  color = 0;
+  for (size_t i = 1; i < text.length(); ++i) {
+    const char digit = text[i];
+    uint8_t value = 0;
+    if (digit >= '0' && digit <= '9') {
+      value = static_cast<uint8_t>(digit - '0');
+    } else if (digit >= 'A' && digit <= 'F') {
+      value = static_cast<uint8_t>(digit - 'A' + 10);
+    } else if (digit >= 'a' && digit <= 'f') {
+      value = static_cast<uint8_t>(digit - 'a' + 10);
+    } else {
+      return false;
+    }
+    color = (color << 4) | value;
+  }
+  return true;
+}
+
 bool hasSelectionMetadata() {
   return server.hasArg("album") || server.hasArg("title") ||
-         server.hasArg("catalogId") || server.hasArg("dfplayerTrack");
+         server.hasArg("catalogId") || server.hasArg("dfplayerTrack") ||
+         server.hasArg("color1") || server.hasArg("color2");
 }
 
 bool readSelectionMetadata(String& album, String& title,
                            uint32_t& catalogId, uint32_t& dfplayerTrack,
-                           bool requireTrack) {
+                           uint32_t& color1, uint32_t& color2,
+                           bool& usedFallbackColors, bool requireTrack) {
   if (!server.hasArg("album") || !server.hasArg("title") ||
       !server.hasArg("catalogId") ||
       (requireTrack && !server.hasArg("dfplayerTrack")) ||
@@ -181,12 +201,50 @@ bool readSelectionMetadata(String& album, String& title,
 
   album = server.arg("album");
   title = server.arg("title");
-  return isValidMetadataText(album, 80) &&
-         isValidMetadataText(title, 120) &&
-         parsePositiveDecimal(server.arg("catalogId"), 999999999, catalogId) &&
-         (!requireTrack ||
-          parsePositiveDecimal(server.arg("dfplayerTrack"), 9999,
-                               dfplayerTrack));
+  if (!isValidMetadataText(album, 80) ||
+      !isValidMetadataText(title, 120) ||
+      !parsePositiveDecimal(server.arg("catalogId"), 999999999, catalogId) ||
+      (requireTrack &&
+       !parsePositiveDecimal(server.arg("dfplayerTrack"), 9999,
+                             dfplayerTrack))) {
+    return false;
+  }
+
+  if (server.hasArg("color1") != server.hasArg("color2")) {
+    return false;
+  }
+  if (server.hasArg("color1")) {
+    usedFallbackColors = false;
+    return parseRgbColor(server.arg("color1"), color1) &&
+           parseRgbColor(server.arg("color2"), color2);
+  }
+
+  color1 = 0x315B4C;
+  color2 = 0xA9C7AE;
+  usedFallbackColors = true;
+  return true;
+}
+
+void printRgbColor(uint32_t color) {
+  char formatted[8];
+  snprintf(formatted, sizeof(formatted), "#%06lX",
+           static_cast<unsigned long>(color));
+  Serial.print(formatted);
+}
+
+void applyAlbumColors(const String& album, uint32_t color1, uint32_t color2,
+                     bool usedFallbackColors) {
+  Serial.print("[LED] Requested colors: ");
+  printRgbColor(color1);
+  Serial.print(" / ");
+  printRgbColor(color2);
+  Serial.println();
+  if (usedFallbackColors) {
+    Serial.println("[LED] No album colors provided; using fallback.");
+  } else {
+    Serial.println("[LED] Color values accepted.");
+  }
+  ledAlbumLighting.setAlbumColors(album, color1, color2);
 }
 
 void logPlaySelection(const String& album, const String& title,
@@ -236,14 +294,25 @@ void handlePlay(){
   String title;
   uint32_t catalogId = 0;
   uint32_t mappedTrack = 0;
+  uint32_t color1 = 0;
+  uint32_t color2 = 0;
+  bool usedFallbackColors = false;
   if (hasSelectionMetadata()) {
-    if (!readSelectionMetadata(album, title, catalogId, mappedTrack, true) ||
-        mappedTrack != track) {
+    if (!readSelectionMetadata(album, title, catalogId, mappedTrack,
+                               color1, color2, usedFallbackColors, true)) {
+      if (server.hasArg("color1") || server.hasArg("color2")) {
+        Serial.println("[LED] Color values rejected.");
+      }
       sendHttpResponse(400, "text/plain",
                        "Invalid or incomplete song metadata");
       return;
     }
+    if (mappedTrack != track) {
+      sendHttpResponse(400, "text/plain", "DFPlayer track metadata mismatch");
+      return;
+    }
     logPlaySelection(album, title, catalogId, String(track));
+    applyAlbumColors(album, color1, color2, usedFallbackColors);
   } else {
     logPlaySelection("metadata unavailable", "metadata unavailable", 0,
                      String(track));
@@ -265,12 +334,20 @@ void handlePlaySelection(){
   String title;
   uint32_t catalogId = 0;
   uint32_t unusedTrack = 0;
-  if (!readSelectionMetadata(album, title, catalogId, unusedTrack, false)) {
+  uint32_t color1 = 0;
+  uint32_t color2 = 0;
+  bool usedFallbackColors = false;
+  if (!readSelectionMetadata(album, title, catalogId, unusedTrack,
+                             color1, color2, usedFallbackColors, false)) {
+    if (server.hasArg("color1") || server.hasArg("color2")) {
+      Serial.println("[LED] Color values rejected.");
+    }
     sendHttpResponse(400, "text/plain", "Invalid or incomplete song metadata");
     return;
   }
 
   logPlaySelection(album, title, catalogId, "not mapped");
+  applyAlbumColors(album, color1, color2, usedFallbackColors);
   sendHttpResponse(200, "text/plain",
                    "Song selection logged; no play command sent");
 }
@@ -364,9 +441,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   dfPlayerDiagnostic.begin();
-#if ENABLE_LED_STRIP_TEST
-  ledStripTest.begin();
-#endif
+  ledAlbumLighting.begin();
   if (!LittleFS.begin()) {
     Serial.println("LittleFS mount failed");
     return;
@@ -390,9 +465,7 @@ void setup() {
 void loop() {
   updateUptime();
   dfPlayerDiagnostic.update();
-#if ENABLE_LED_STRIP_TEST
-  ledStripTest.update();
-#endif
+  ledAlbumLighting.update();
   if (!wifiConfigured) {
     delay(1);
     return;

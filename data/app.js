@@ -130,9 +130,16 @@ function playTrackAtIndex(trackIndex) {
 
     const hasMappedTrack = Number.isInteger(foundTrack.dfplayerTrack) &&
         foundTrack.dfplayerTrack >= 1 && foundTrack.dfplayerTrack <= 9999;
+    const hasAlbumColors = Array.isArray(foundAlbum.ledColors) &&
+        foundAlbum.ledColors.length === 2 &&
+        foundAlbum.ledColors.every(color => /^#[0-9A-Fa-f]{6}$/.test(color));
     const metadata = `album=${encodeURIComponent(foundTrack.album)}` +
         `&title=${encodeURIComponent(foundTrack.title)}` +
-        `&catalogId=${encodeURIComponent(foundTrack.id)}`;
+        `&catalogId=${encodeURIComponent(foundTrack.id)}` +
+        (hasAlbumColors
+            ? `&color1=${encodeURIComponent(foundAlbum.ledColors[0])}` +
+                `&color2=${encodeURIComponent(foundAlbum.ledColors[1])}`
+            : '');
     const url = hasMappedTrack
         ? `/play?id=${encodeURIComponent(foundTrack.dfplayerTrack)}` +
             `&${metadata}&dfplayerTrack=${encodeURIComponent(foundTrack.dfplayerTrack)}`
@@ -144,6 +151,9 @@ function playTrackAtIndex(trackIndex) {
         setPlaybackMessage('This song is not available on the SD card yet.');
     } else {
         console.log('[MusicPlayer] DFPlayer playback request: sending.');
+    }
+    if(!hasAlbumColors) {
+        console.log('[LED] Album colors missing or invalid; ESP32 fallback will be used.');
     }
 
     console.log('[MusicPlayer] Selection metadata request: sending.');
@@ -289,6 +299,7 @@ async function loadSongs() {
                 title: track.title,
                 album: album.name,
                 cover: album.cover,
+                ledColors: album.ledColors,
                 dfplayerTrack: track.dfplayerTrack
             });
             tracksHTML += createTrackHTML(track, index, catalogIndex);
