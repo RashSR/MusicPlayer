@@ -167,7 +167,7 @@ void loop() {
   updateUptime();
   dfPlayerDiagnostic.update();
   if (!wifiConfigured) {
-    delay(1000);
+    delay(1);
     return;
   }
 

@@ -43,11 +43,15 @@ class DFPlayerDiagnostic {
       failCurrentQuery(now);
     } else if (!queryInFlight_ && started_ && !diagnosticComplete_ &&
                now - lastQueryFinishedAtMs_ >= commandIntervalMs) {
-      sendCurrentQuery(now);
+      if (!audioTestInProgress()) {
+        sendCurrentQuery(now);
+      }
     } else if (!queryInFlight_ && diagnosticComplete_ &&
                now - lastQueryFinishedAtMs_ >= periodicQueryIntervalMs) {
       sendCurrentQuery(now);
     }
+
+    updateAudioTest(now);
   }
 
   const char* connectionStatus() const {
@@ -88,12 +92,23 @@ class DFPlayerDiagnostic {
     QueryPlayback
   };
 
+  enum AudioTestState : uint8_t {
+    AudioTestNotStarted,
+    AudioTestWaitingForVolume,
+    AudioTestWaitingForPlayback,
+    AudioTestPlaying,
+    AudioTestCompleted
+  };
+
   static const uint32_t startupWaitMs = 2000;
   static const uint32_t commandIntervalMs = 500;
   static const uint32_t periodicQueryIntervalMs = 5000;
   static const uint32_t responseTimeoutMs = 2000;
   static const uint32_t frameTimeoutMs = 250;
   static const uint32_t recentResponseMs = 15000;
+  static const uint32_t audioTestStartDelayMs = 1000;
+  static const uint32_t volumeSettleDelayMs = 300;
+  static const uint32_t audioTestPlaybackMs = 5000;
   static const uint8_t maxAttempts = 3;
   static const size_t frameSize = 10;
 
@@ -105,9 +120,11 @@ class DFPlayerDiagnostic {
   uint32_t querySentAtMs_ = 0;
   uint32_t frameStartedAtMs_ = 0;
   uint32_t lastResponseMs_ = 0;
+  uint32_t audioTestStageStartedAtMs_ = 0;
   uint16_t trackCount_ = 0;
   uint8_t attempts_ = 0;
   QueryStep queryStep_ = QueryStorage;
+  AudioTestState audioTestState_ = AudioTestNotStarted;
   bool started_ = false;
   bool hasSentQuery_ = false;
   bool queryInFlight_ = false;
@@ -142,16 +159,6 @@ class DFPlayerDiagnostic {
   }
 
   void sendCurrentQuery(uint32_t now) {
-    uint8_t query[frameSize] = {
-      0x7E, 0xFF, 0x06, expectedCommand(), 0x00, 0x00,
-      0x00, 0x00, 0x00, 0xEF
-    };
-    const uint16_t checksum = static_cast<uint16_t>(
-        0 - (query[1] + query[2] + query[3] + query[4] +
-             query[5] + query[6]));
-    query[7] = static_cast<uint8_t>(checksum >> 8);
-    query[8] = static_cast<uint8_t>(checksum & 0xFF);
-
     if (attempts_ == 0) {
       Serial.print("[DFPlayer] Querying ");
       Serial.print(queryDescription());
@@ -164,7 +171,7 @@ class DFPlayerDiagnostic {
       Serial.println(" of 3)...");
     }
 
-    serial_.write(query, sizeof(query));
+    sendCommand(expectedCommand(), 0);
     ++attempts_;
     querySentAtMs_ = now;
     hasSentQuery_ = true;
@@ -249,7 +256,22 @@ class DFPlayerDiagnostic {
         hasTrackCount_ = true;
         Serial.print("[DFPlayer] Recognized tracks: ");
         Serial.println(trackCount_);
-        finishCurrentQuery(now);
+        if (strcmp(sdStatus_, "detected") == 0 && trackCount_ > 0) {
+          queryInFlight_ = false;
+          attempts_ = 0;
+          queryStep_ = QueryPlayback;
+          lastQueryFinishedAtMs_ = now;
+          audioTestState_ = AudioTestWaitingForVolume;
+          audioTestStageStartedAtMs_ = now;
+          Serial.println("[DFPlayer] Starting audio test...");
+        } else {
+          if (strcmp(sdStatus_, "detected") != 0) {
+            Serial.println("[DFPlayer] Audio test skipped: SD card not confirmed.");
+          } else {
+            Serial.println("[DFPlayer] Audio test skipped: no tracks confirmed.");
+          }
+          finishCurrentQuery(now);
+        }
         break;
       case QueryPlayback:
         processPlaybackResponse(parameter);
@@ -276,7 +298,15 @@ class DFPlayerDiagnostic {
   }
 
   void processPlaybackResponse(uint16_t status) {
-    switch (status) {
+    const uint8_t device = static_cast<uint8_t>(status >> 8);
+    const uint8_t state = static_cast<uint8_t>(status);
+    if (device != 0) {
+      Serial.print("[DFPlayer] Playback response device: 0x");
+      printHexByte(device);
+      Serial.println();
+    }
+
+    switch (state) {
       case 0:
         playbackStatus_ = "stopped";
         Serial.println("[DFPlayer] Playback status: Stopped");
@@ -291,12 +321,86 @@ class DFPlayerDiagnostic {
         break;
       default:
         playbackStatus_ = "unknown";
-        Serial.print("[DFPlayer] Unexpected playback status: 0x");
-        printHexByte(static_cast<uint8_t>(status >> 8));
-        printHexByte(static_cast<uint8_t>(status));
+        Serial.print("[DFPlayer] Unexpected playback state: 0x");
+        printHexByte(state);
         Serial.println();
         break;
     }
+  }
+
+  bool audioTestInProgress() const {
+    return audioTestState_ == AudioTestWaitingForVolume ||
+           audioTestState_ == AudioTestWaitingForPlayback ||
+           audioTestState_ == AudioTestPlaying;
+  }
+
+  void updateAudioTest(uint32_t now) {
+    if (audioTestState_ == AudioTestWaitingForVolume &&
+        now - audioTestStageStartedAtMs_ >= audioTestStartDelayMs) {
+      Serial.println("[DFPlayer] Setting volume to 5/30");
+      sendCommand(0x06, 5);
+      audioTestState_ = AudioTestWaitingForPlayback;
+      audioTestStageStartedAtMs_ = now;
+    } else if (audioTestState_ == AudioTestWaitingForPlayback &&
+               now - audioTestStageStartedAtMs_ >= volumeSettleDelayMs) {
+      Serial.println("[DFPlayer] Playing /mp3/0001.mp3 (track 1)");
+      sendCommand(0x12, 1);
+      playbackStatus_ = "unknown";
+      audioTestState_ = AudioTestPlaying;
+      audioTestStageStartedAtMs_ = now;
+    } else if (audioTestState_ == AudioTestPlaying &&
+               now - audioTestStageStartedAtMs_ >= audioTestPlaybackMs) {
+      Serial.println("[DFPlayer] Stopping playback after 5 seconds");
+      sendCommand(0x16, 0);
+      playbackStatus_ = "unknown";
+      audioTestState_ = AudioTestCompleted;
+      lastQueryFinishedAtMs_ = now;
+      Serial.println("[DFPlayer] Audio test sequence completed");
+    }
+  }
+
+  bool sendCommand(uint8_t command, uint16_t parameter) {
+    uint8_t frame[frameSize] = {
+      0x7E, 0xFF, 0x06, command, 0x00,
+      static_cast<uint8_t>(parameter >> 8),
+      static_cast<uint8_t>(parameter & 0xFF),
+      0x00, 0x00, 0xEF
+    };
+    const uint16_t checksum = static_cast<uint16_t>(
+        0 - (frame[1] + frame[2] + frame[3] + frame[4] +
+             frame[5] + frame[6]));
+    frame[7] = static_cast<uint8_t>(checksum >> 8);
+    frame[8] = static_cast<uint8_t>(checksum & 0xFF);
+
+    if (frame[0] != 0x7E || frame[1] != 0xFF ||
+        frame[2] != 0x06 || frame[9] != 0xEF ||
+        readChecksum(frame) != calculateChecksum(frame)) {
+      Serial.println("[DFPlayer] Refusing to send command with invalid frame/checksum.");
+      return false;
+    }
+
+    Serial.print("[DFPlayer] TX: ");
+    for (size_t i = 0; i < frameSize; ++i) {
+      printHexByte(frame[i]);
+      if (i + 1 < frameSize) {
+        Serial.print(' ');
+      }
+    }
+    Serial.println();
+    serial_.write(frame, sizeof(frame));
+    return true;
+  }
+
+  static uint16_t calculateChecksum(const uint8_t* frame) {
+    uint16_t sum = 0;
+    for (size_t i = 1; i <= 6; ++i) {
+      sum = static_cast<uint16_t>(sum + frame[i]);
+    }
+    return static_cast<uint16_t>(0 - sum);
+  }
+
+  static uint16_t readChecksum(const uint8_t* frame) {
+    return static_cast<uint16_t>((frame[7] << 8) | frame[8]);
   }
 
   void finishCurrentQuery(uint32_t now) {
@@ -350,14 +454,7 @@ class DFPlayerDiagnostic {
       return "invalid end byte.";
     }
 
-    uint16_t sum = 0;
-    for (size_t i = 1; i <= 6; ++i) {
-      sum = static_cast<uint16_t>(sum + frame_[i]);
-    }
-    const uint16_t expectedChecksum = static_cast<uint16_t>(0 - sum);
-    const uint16_t receivedChecksum =
-        static_cast<uint16_t>((frame_[7] << 8) | frame_[8]);
-    if (receivedChecksum != expectedChecksum) {
+    if (readChecksum(frame_) != calculateChecksum(frame_)) {
       return "invalid checksum.";
     }
     return nullptr;
