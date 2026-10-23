@@ -2,10 +2,12 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include "wifi_credentials.h"
 
-const char* ssid = "MusicPlayer";
-const char* password = "12345678";
 WebServer server(80);
+bool wasConnectedToWiFi = false;
+bool wifiConfigured = false;
+bool webServerStarted = false;
 
 void handleLandingPage(){
   Serial.print("Client connected from: ");
@@ -59,6 +61,13 @@ void setupRoutes(){
   server.on("/next", handleNext);
 }
 
+void startWebServer() {
+  setupRoutes();
+  server.serveStatic("/", LittleFS, "/");
+  server.begin();
+  webServerStarted = true;
+}
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -67,17 +76,48 @@ void setup() {
     return;
   } 
 
-  WiFi.softAP(ssid, password);
+  if (strlen(WIFI_SSID) == 0 || strlen(WIFI_PASSWORD) == 0 ||
+      strcmp(WIFI_SSID, "YOUR_HOME_WIFI_NAME") == 0 ||
+      strcmp(WIFI_PASSWORD, "YOUR_HOME_WIFI_PASSWORD") == 0) {
+    Serial.println("Set your home Wi-Fi name and password in include/wifi_credentials.h");
+    return;
+  }
 
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  wifiConfigured = true;
+
+  Serial.print("Connecting to home Wi-Fi");
+  const unsigned long connectionStarted = millis();
+  while (WiFi.status() != WL_CONNECTED &&
+         millis() - connectionStarted < 30000) {
+    delay(500);
+    Serial.print(".");
+  }
   Serial.println();
-  Serial.println("WiFi started");
-  Serial.println(WiFi.softAPIP());
-
-  setupRoutes();
-  server.serveStatic("/", LittleFS, "/");
-  server.begin();
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Could not connect; check Wi-Fi credentials. Will keep trying.");
+  }
 }
 
 void loop() {
-  server.handleClient();
+  if (!wifiConfigured) {
+    delay(1000);
+    return;
+  }
+
+  const bool connectedToWiFi = WiFi.status() == WL_CONNECTED;
+  if (connectedToWiFi && !wasConnectedToWiFi) {
+    Serial.print("Connected to home Wi-Fi. Open http://");
+    Serial.println(WiFi.localIP());
+    startWebServer();
+  } else if (!connectedToWiFi && wasConnectedToWiFi) {
+    Serial.println("Wi-Fi disconnected; waiting to reconnect");
+  }
+  wasConnectedToWiFi = connectedToWiFi;
+
+  if (webServerStarted) {
+    server.handleClient();
+  }
 }
