@@ -5,6 +5,13 @@
 #include "wifi_credentials.h"
 #include "DFPlayerDiagnostic.h"
 
+#define ENABLE_LED_STRIP_TEST 1
+
+#if ENABLE_LED_STRIP_TEST
+#include "LedStripTest.h"
+LedStripTest ledStripTest;
+#endif
+
 HardwareSerial dfSerial(1);
 DFPlayerDiagnostic dfPlayerDiagnostic(dfSerial);
 WebServer server(80);
@@ -357,6 +364,9 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   dfPlayerDiagnostic.begin();
+#if ENABLE_LED_STRIP_TEST
+  ledStripTest.begin();
+#endif
   if (!LittleFS.begin()) {
     Serial.println("LittleFS mount failed");
     return;
@@ -380,6 +390,9 @@ void setup() {
 void loop() {
   updateUptime();
   dfPlayerDiagnostic.update();
+#if ENABLE_LED_STRIP_TEST
+  ledStripTest.update();
+#endif
   if (!wifiConfigured) {
     delay(1);
     return;
