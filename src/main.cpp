@@ -185,12 +185,14 @@ bool parseRgbColor(const String& text, uint32_t& color) {
 bool hasSelectionMetadata() {
   return server.hasArg("album") || server.hasArg("title") ||
          server.hasArg("catalogId") || server.hasArg("dfplayerTrack") ||
-         server.hasArg("color1") || server.hasArg("color2");
+         server.hasArg("color1") || server.hasArg("color2") ||
+         server.hasArg("color3");
 }
 
 bool readSelectionMetadata(String& album, String& title,
                            uint32_t& catalogId, uint32_t& dfplayerTrack,
                            uint32_t& color1, uint32_t& color2,
+                           uint32_t& color3, bool& hasThirdColor,
                            bool& usedFallbackColors, bool requireTrack) {
   if (!server.hasArg("album") || !server.hasArg("title") ||
       !server.hasArg("catalogId") ||
@@ -210,17 +212,25 @@ bool readSelectionMetadata(String& album, String& title,
     return false;
   }
 
-  if (server.hasArg("color1") != server.hasArg("color2")) {
+  const bool hasColor1 = server.hasArg("color1");
+  const bool hasColor2 = server.hasArg("color2");
+  hasThirdColor = server.hasArg("color3");
+  if (hasColor1 != hasColor2 || (hasThirdColor && !hasColor1)) {
     return false;
   }
-  if (server.hasArg("color1")) {
+  if (hasColor1) {
     usedFallbackColors = false;
-    return parseRgbColor(server.arg("color1"), color1) &&
-           parseRgbColor(server.arg("color2"), color2);
+    if (!parseRgbColor(server.arg("color1"), color1) ||
+        !parseRgbColor(server.arg("color2"), color2)) {
+      return false;
+    }
+    return !hasThirdColor || parseRgbColor(server.arg("color3"), color3);
   }
 
   color1 = 0x315B4C;
   color2 = 0xA9C7AE;
+  color3 = 0;
+  hasThirdColor = false;
   usedFallbackColors = true;
   return true;
 }
@@ -233,18 +243,24 @@ void printRgbColor(uint32_t color) {
 }
 
 void applyAlbumColors(const String& album, uint32_t color1, uint32_t color2,
+                     uint32_t color3, bool hasThirdColor,
                      bool usedFallbackColors) {
   Serial.print("[LED] Requested colors: ");
   printRgbColor(color1);
   Serial.print(" / ");
   printRgbColor(color2);
+  if (hasThirdColor) {
+    Serial.print(" / ");
+    printRgbColor(color3);
+  }
   Serial.println();
   if (usedFallbackColors) {
     Serial.println("[LED] No album colors provided; using fallback.");
   } else {
     Serial.println("[LED] Color values accepted.");
   }
-  ledAlbumLighting.setAlbumColors(album, color1, color2);
+  ledAlbumLighting.setAlbumColors(album, color1, color2, color3,
+                                  hasThirdColor);
 }
 
 void logPlaySelection(const String& album, const String& title,
@@ -296,11 +312,15 @@ void handlePlay(){
   uint32_t mappedTrack = 0;
   uint32_t color1 = 0;
   uint32_t color2 = 0;
+  uint32_t color3 = 0;
+  bool hasThirdColor = false;
   bool usedFallbackColors = false;
   if (hasSelectionMetadata()) {
     if (!readSelectionMetadata(album, title, catalogId, mappedTrack,
-                               color1, color2, usedFallbackColors, true)) {
-      if (server.hasArg("color1") || server.hasArg("color2")) {
+                               color1, color2, color3, hasThirdColor,
+                               usedFallbackColors, true)) {
+      if (server.hasArg("color1") || server.hasArg("color2") ||
+          server.hasArg("color3")) {
         Serial.println("[LED] Color values rejected.");
       }
       sendHttpResponse(400, "text/plain",
@@ -312,7 +332,8 @@ void handlePlay(){
       return;
     }
     logPlaySelection(album, title, catalogId, String(track));
-    applyAlbumColors(album, color1, color2, usedFallbackColors);
+    applyAlbumColors(album, color1, color2, color3, hasThirdColor,
+                     usedFallbackColors);
   } else {
     logPlaySelection("metadata unavailable", "metadata unavailable", 0,
                      String(track));
@@ -336,10 +357,14 @@ void handlePlaySelection(){
   uint32_t unusedTrack = 0;
   uint32_t color1 = 0;
   uint32_t color2 = 0;
+  uint32_t color3 = 0;
+  bool hasThirdColor = false;
   bool usedFallbackColors = false;
   if (!readSelectionMetadata(album, title, catalogId, unusedTrack,
-                             color1, color2, usedFallbackColors, false)) {
-    if (server.hasArg("color1") || server.hasArg("color2")) {
+                             color1, color2, color3, hasThirdColor,
+                             usedFallbackColors, false)) {
+    if (server.hasArg("color1") || server.hasArg("color2") ||
+        server.hasArg("color3")) {
       Serial.println("[LED] Color values rejected.");
     }
     sendHttpResponse(400, "text/plain", "Invalid or incomplete song metadata");
@@ -347,7 +372,8 @@ void handlePlaySelection(){
   }
 
   logPlaySelection(album, title, catalogId, "not mapped");
-  applyAlbumColors(album, color1, color2, usedFallbackColors);
+  applyAlbumColors(album, color1, color2, color3, hasThirdColor,
+                   usedFallbackColors);
   sendHttpResponse(200, "text/plain",
                    "Song selection logged; no play command sent");
 }

@@ -3,7 +3,7 @@
     {
       "name": "Taylor Swift",
       "cover": "taylor_swift.jpg",
-      "ledColors": ["#44A6A0", "#8CCB85"],
+      "ledColors": ["#44A6A0", "#8CCB85", "#F1E5C8"],
       "tracks": [
         { "id": 101, "title": "Tim McGraw", "dfplayerTrack": 1 },
         { "id": 102, "title": "Picture to Burn" },
@@ -73,7 +73,7 @@
     {
       "name": "Red",
       "cover": "red.jpg",
-      "ledColors": ["#A51C30", "#291C24"],
+      "ledColors": ["#A51C30", "#291C24", "#E8D6C3"],
       "tracks": [
         { "id": 401, "title": "State of Grace" },
         { "id": 402, "title": "Red" },
@@ -100,7 +100,7 @@
     {
       "name": "1989",
       "cover": "1989.jpg",
-      "ledColors": ["#9BC9DB", "#E6C7B7"],
+      "ledColors": ["#9BC9DB", "#E6C7B7", "#F4F1EA"],
       "tracks": [
         { "id": 501, "title": "Welcome to New York" },
         { "id": 502, "title": "Blank Space" },
@@ -145,7 +145,7 @@
     {
       "name": "Lover",
       "cover": "lover.jpg",
-      "ledColors": ["#F4A5C7", "#88CDEB"],
+      "ledColors": ["#F4A5C7", "#88CDEB", "#B99CDE"],
       "tracks": [
         { "id": 701, "title": "I Forgot That You Existed" },
         { "id": 702, "title": "Cruel Summer" },
@@ -194,7 +194,7 @@
     {
       "name": "Evermore",
       "cover": "evermore.jpg",
-      "ledColors": ["#995C38", "#D1A675"],
+      "ledColors": ["#995C38", "#D1A675", "#405A42"],
       "tracks": [
         { "id": 901, "title": "Willow" },
         { "id": 902, "title": "Champagne Problems" },

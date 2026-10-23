@@ -131,14 +131,17 @@ function playTrackAtIndex(trackIndex) {
     const hasMappedTrack = Number.isInteger(foundTrack.dfplayerTrack) &&
         foundTrack.dfplayerTrack >= 1 && foundTrack.dfplayerTrack <= 9999;
     const hasAlbumColors = Array.isArray(foundAlbum.ledColors) &&
-        foundAlbum.ledColors.length === 2 &&
+        (foundAlbum.ledColors.length === 2 || foundAlbum.ledColors.length === 3) &&
         foundAlbum.ledColors.every(color => /^#[0-9A-Fa-f]{6}$/.test(color));
     const metadata = `album=${encodeURIComponent(foundTrack.album)}` +
         `&title=${encodeURIComponent(foundTrack.title)}` +
         `&catalogId=${encodeURIComponent(foundTrack.id)}` +
         (hasAlbumColors
             ? `&color1=${encodeURIComponent(foundAlbum.ledColors[0])}` +
-                `&color2=${encodeURIComponent(foundAlbum.ledColors[1])}`
+                `&color2=${encodeURIComponent(foundAlbum.ledColors[1])}` +
+                (foundAlbum.ledColors.length === 3
+                    ? `&color3=${encodeURIComponent(foundAlbum.ledColors[2])}`
+                    : '')
             : '');
     const url = hasMappedTrack
         ? `/play?id=${encodeURIComponent(foundTrack.dfplayerTrack)}` +
