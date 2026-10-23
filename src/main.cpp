@@ -3,7 +3,10 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include "wifi_credentials.h"
+#include "DFPlayerDiagnostic.h"
 
+HardwareSerial dfSerial(1);
+DFPlayerDiagnostic dfPlayerDiagnostic(dfSerial);
 WebServer server(80);
 bool wasConnectedToWiFi = false;
 bool wifiConfigured = false;
@@ -86,13 +89,14 @@ void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
   char uptimeFormatted[48];
-  char response[256];
+  char response[320];
   formatUptime(uptimeSeconds, uptimeFormatted, sizeof(uptimeFormatted));
   snprintf(response, sizeof(response),
            "{\"online\":true,\"device\":\"ESP32 Music Player\","
            "\"ip\":\"%u.%u.%u.%u\",\"uptime\":%llu,"
            "\"uptime_formatted\":\"%s\",\"wifi_rssi\":%d,"
-           "\"free_heap\":%lu}",
+           "\"free_heap\":%lu,\"dfplayer_uart\":\"%s\","
+           "\"dfplayer_last_response_ms\":%lu}",
            static_cast<unsigned int>(ip[0]),
            static_cast<unsigned int>(ip[1]),
            static_cast<unsigned int>(ip[2]),
@@ -100,7 +104,9 @@ void handleStatus(){
            static_cast<unsigned long long>(uptimeSeconds),
            uptimeFormatted,
            static_cast<int>(WiFi.RSSI()),
-           static_cast<unsigned long>(ESP.getFreeHeap()));
+           static_cast<unsigned long>(ESP.getFreeHeap()),
+           dfPlayerDiagnostic.connectionStatus(),
+           static_cast<unsigned long>(dfPlayerDiagnostic.lastResponseMs()));
 
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", response);
@@ -125,6 +131,7 @@ void startWebServer() {
 void setup() {
   Serial.begin(115200);
   delay(500);
+  dfPlayerDiagnostic.begin();
   if (!LittleFS.begin()) {
     Serial.println("LittleFS mount failed");
     return;
@@ -147,6 +154,7 @@ void setup() {
 
 void loop() {
   updateUptime();
+  dfPlayerDiagnostic.update();
   if (!wifiConfigured) {
     delay(1000);
     return;
