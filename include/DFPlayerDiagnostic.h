@@ -11,8 +11,9 @@ class DFPlayerDiagnostic {
   void begin() {
     Serial.println("[DFPlayer] Initializing UART1...");
     serial_.begin(9600, SERIAL_8N1, 18, 17);
+    Serial.println("[DFPlayer] UART initialized");
     Serial.println("[DFPlayer] RX=18 TX=17 Baud=9600");
-    Serial.println("[DFPlayer] UART test does not require an SD card.");
+    Serial.println("[DFPlayer] Allowing 2 seconds for module and SD initialization.");
     startedAtMs_ = millis();
   }
 
@@ -26,8 +27,7 @@ class DFPlayerDiagnostic {
       now = millis();
     }
 
-    if (frameLength_ > 0 &&
-        now - frameStartedAtMs_ >= responseTimeoutMs) {
+    if (frameLength_ > 0 && now - frameStartedAtMs_ >= frameTimeoutMs) {
       printFrameBytes();
       Serial.print("[DFPlayer] Incomplete frame (received ");
       Serial.print(frameLength_);
@@ -35,16 +35,18 @@ class DFPlayerDiagnostic {
       frameLength_ = 0;
     }
 
-    if (awaitingResponse_ && now - lastQueryMs_ >= responseTimeoutMs) {
-      awaitingResponse_ = false;
+    if (!started_ && now - startedAtMs_ >= startupWaitMs) {
+      started_ = true;
+      sendCurrentQuery(now);
+    } else if (queryInFlight_ && now - querySentAtMs_ >= responseTimeoutMs) {
       Serial.println("[DFPlayer] No response within timeout.");
-      Serial.println("[DFPlayer] UART communication not confirmed.");
-      Serial.println("[DFPlayer] Missing SD card may affect module behavior.");
-    }
-
-    if ((!hasSentQuery_ && now - startedAtMs_ >= startupWaitMs) ||
-        (hasSentQuery_ && now - lastQueryMs_ >= queryIntervalMs)) {
-      sendStatusQuery(now);
+      failCurrentQuery(now);
+    } else if (!queryInFlight_ && started_ && !diagnosticComplete_ &&
+               now - lastQueryFinishedAtMs_ >= commandIntervalMs) {
+      sendCurrentQuery(now);
+    } else if (!queryInFlight_ && diagnosticComplete_ &&
+               now - lastQueryFinishedAtMs_ >= periodicQueryIntervalMs) {
+      sendCurrentQuery(now);
     }
   }
 
@@ -53,7 +55,7 @@ class DFPlayerDiagnostic {
     if (hasValidResponse_ && now - lastResponseMs_ <= recentResponseMs) {
       return "connected";
     }
-    if (awaitingResponse_ || !hasSentQuery_) {
+    if (queryInFlight_ || !hasSentQuery_) {
       return "waiting";
     }
     return "no_response";
@@ -63,27 +65,86 @@ class DFPlayerDiagnostic {
     return lastResponseMs_;
   }
 
+  const char* sdStatus() const {
+    return sdStatus_;
+  }
+
+  bool hasTrackCount() const {
+    return hasTrackCount_;
+  }
+
+  uint16_t trackCount() const {
+    return trackCount_;
+  }
+
+  const char* playbackStatus() const {
+    return playbackStatus_;
+  }
+
  private:
-  static const uint32_t startupWaitMs = 1500;
-  static const uint32_t queryIntervalMs = 5000;
-  static const uint32_t responseTimeoutMs = 1500;
+  enum QueryStep : uint8_t {
+    QueryStorage,
+    QueryTrackCount,
+    QueryPlayback
+  };
+
+  static const uint32_t startupWaitMs = 2000;
+  static const uint32_t commandIntervalMs = 500;
+  static const uint32_t periodicQueryIntervalMs = 5000;
+  static const uint32_t responseTimeoutMs = 2000;
+  static const uint32_t frameTimeoutMs = 250;
   static const uint32_t recentResponseMs = 15000;
+  static const uint8_t maxAttempts = 3;
   static const size_t frameSize = 10;
 
   HardwareSerial& serial_;
   uint8_t frame_[frameSize] = {};
   size_t frameLength_ = 0;
   uint32_t startedAtMs_ = 0;
-  uint32_t lastQueryMs_ = 0;
+  uint32_t lastQueryFinishedAtMs_ = 0;
+  uint32_t querySentAtMs_ = 0;
   uint32_t frameStartedAtMs_ = 0;
   uint32_t lastResponseMs_ = 0;
+  uint16_t trackCount_ = 0;
+  uint8_t attempts_ = 0;
+  QueryStep queryStep_ = QueryStorage;
+  bool started_ = false;
   bool hasSentQuery_ = false;
-  bool awaitingResponse_ = false;
+  bool queryInFlight_ = false;
+  bool diagnosticComplete_ = false;
   bool hasValidResponse_ = false;
+  bool hasTrackCount_ = false;
+  const char* sdStatus_ = "unknown";
+  const char* playbackStatus_ = "unknown";
 
-  void sendStatusQuery(uint32_t now) {
+  uint8_t expectedCommand() const {
+    switch (queryStep_) {
+      case QueryStorage:
+        return 0x3F;
+      case QueryTrackCount:
+        return 0x48;
+      case QueryPlayback:
+        return 0x42;
+    }
+    return 0;
+  }
+
+  const char* queryDescription() const {
+    switch (queryStep_) {
+      case QueryStorage:
+        return "storage devices";
+      case QueryTrackCount:
+        return "SD card file count";
+      case QueryPlayback:
+        return "playback status";
+    }
+    return "DFPlayer";
+  }
+
+  void sendCurrentQuery(uint32_t now) {
     uint8_t query[frameSize] = {
-      0x7E, 0xFF, 0x06, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEF
+      0x7E, 0xFF, 0x06, expectedCommand(), 0x00, 0x00,
+      0x00, 0x00, 0x00, 0xEF
     };
     const uint16_t checksum = static_cast<uint16_t>(
         0 - (query[1] + query[2] + query[3] + query[4] +
@@ -91,11 +152,23 @@ class DFPlayerDiagnostic {
     query[7] = static_cast<uint8_t>(checksum >> 8);
     query[8] = static_cast<uint8_t>(checksum & 0xFF);
 
-    Serial.println("[DFPlayer] Sending status query (0x42)...");
+    if (attempts_ == 0) {
+      Serial.print("[DFPlayer] Querying ");
+      Serial.print(queryDescription());
+      Serial.println("...");
+    } else {
+      Serial.print("[DFPlayer] Retrying ");
+      Serial.print(queryDescription());
+      Serial.print(" (attempt ");
+      Serial.print(attempts_ + 1);
+      Serial.println(" of 3)...");
+    }
+
     serial_.write(query, sizeof(query));
-    lastQueryMs_ = now;
+    ++attempts_;
+    querySentAtMs_ = now;
     hasSentQuery_ = true;
-    awaitingResponse_ = true;
+    queryInFlight_ = true;
   }
 
   void processByte(uint8_t value, uint32_t now) {
@@ -126,19 +199,141 @@ class DFPlayerDiagnostic {
       return;
     }
 
-    Serial.println("[DFPlayer] Valid UART response received!");
+    hasValidResponse_ = true;
+    lastResponseMs_ = now;
+    const uint8_t command = frame_[3];
+    const uint16_t parameter =
+        static_cast<uint16_t>((frame_[5] << 8) | frame_[6]);
+
+    if (command == 0x40) {
+      Serial.print("[DFPlayer] Error response: 0x40, parameter: 0x");
+      printHexByte(frame_[5]);
+      printHexByte(frame_[6]);
+      Serial.println();
+      if (queryInFlight_) {
+        failCurrentQuery(now);
+      }
+      frameLength_ = 0;
+      return;
+    }
+
+    if (command == 0x41) {
+      Serial.println("[DFPlayer] Acknowledgement received; awaiting query result.");
+      frameLength_ = 0;
+      return;
+    }
+
+    if (!queryInFlight_ || command != expectedCommand()) {
+      Serial.print("[DFPlayer] Unexpected response command: 0x");
+      printHexByte(command);
+      Serial.println();
+      frameLength_ = 0;
+      return;
+    }
+
+    Serial.println("[DFPlayer] Valid query response received.");
     Serial.print("[DFPlayer] Command: 0x");
-    printHexByte(frame_[3]);
+    printHexByte(command);
     Serial.println();
     Serial.print("[DFPlayer] Parameter: 0x");
     printHexByte(frame_[5]);
     printHexByte(frame_[6]);
     Serial.println();
 
-    lastResponseMs_ = now;
-    hasValidResponse_ = true;
-    awaitingResponse_ = false;
+    switch (queryStep_) {
+      case QueryStorage:
+        processStorageResponse(parameter, now);
+        break;
+      case QueryTrackCount:
+        trackCount_ = parameter;
+        hasTrackCount_ = true;
+        Serial.print("[DFPlayer] Recognized tracks: ");
+        Serial.println(trackCount_);
+        finishCurrentQuery(now);
+        break;
+      case QueryPlayback:
+        processPlaybackResponse(parameter);
+        finishCurrentQuery(now);
+        break;
+    }
     frameLength_ = 0;
+  }
+
+  void processStorageResponse(uint16_t devices, uint32_t now) {
+    Serial.print("[DFPlayer] Available storage mask: 0x");
+    printHexByte(static_cast<uint8_t>(devices >> 8));
+    printHexByte(static_cast<uint8_t>(devices));
+    Serial.println();
+
+    if ((devices & 0x0002) != 0) {
+      sdStatus_ = "detected";
+      Serial.println("[DFPlayer] SD card detected!");
+    } else {
+      sdStatus_ = "not_detected";
+      Serial.println("[DFPlayer] SD card detection not confirmed.");
+    }
+    finishCurrentQuery(now);
+  }
+
+  void processPlaybackResponse(uint16_t status) {
+    switch (status) {
+      case 0:
+        playbackStatus_ = "stopped";
+        Serial.println("[DFPlayer] Playback status: Stopped");
+        break;
+      case 1:
+        playbackStatus_ = "playing";
+        Serial.println("[DFPlayer] Playback status: Playing");
+        break;
+      case 2:
+        playbackStatus_ = "paused";
+        Serial.println("[DFPlayer] Playback status: Paused");
+        break;
+      default:
+        playbackStatus_ = "unknown";
+        Serial.print("[DFPlayer] Unexpected playback status: 0x");
+        printHexByte(static_cast<uint8_t>(status >> 8));
+        printHexByte(static_cast<uint8_t>(status));
+        Serial.println();
+        break;
+    }
+  }
+
+  void finishCurrentQuery(uint32_t now) {
+    queryInFlight_ = false;
+    attempts_ = 0;
+    lastQueryFinishedAtMs_ = now;
+    if (queryStep_ == QueryPlayback) {
+      if (!diagnosticComplete_) {
+        diagnosticComplete_ = true;
+        Serial.println("[DFPlayer] SD card diagnostic completed.");
+      }
+      return;
+    }
+    queryStep_ = static_cast<QueryStep>(queryStep_ + 1);
+  }
+
+  void failCurrentQuery(uint32_t now) {
+    queryInFlight_ = false;
+    lastQueryFinishedAtMs_ = now;
+    if (attempts_ < maxAttempts) {
+      return;
+    }
+
+    if (queryStep_ == QueryStorage) {
+      Serial.println("[DFPlayer] SD card detection not confirmed.");
+    } else if (queryStep_ == QueryTrackCount) {
+      Serial.println("[DFPlayer] File count unavailable.");
+    }
+    attempts_ = 0;
+    if (queryStep_ == QueryPlayback) {
+      if (!diagnosticComplete_) {
+        diagnosticComplete_ = true;
+        Serial.println("[DFPlayer] SD card diagnostic completed.");
+      }
+      return;
+    }
+    queryStep_ = static_cast<QueryStep>(queryStep_ + 1);
   }
 
   const char* validateFrame() const {

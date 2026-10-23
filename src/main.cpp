@@ -89,14 +89,22 @@ void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
   char uptimeFormatted[48];
-  char response[320];
+  char trackCount[8];
+  char response[448];
   formatUptime(uptimeSeconds, uptimeFormatted, sizeof(uptimeFormatted));
+  if (dfPlayerDiagnostic.hasTrackCount()) {
+    snprintf(trackCount, sizeof(trackCount), "%u",
+             static_cast<unsigned int>(dfPlayerDiagnostic.trackCount()));
+  } else {
+    snprintf(trackCount, sizeof(trackCount), "null");
+  }
   snprintf(response, sizeof(response),
            "{\"online\":true,\"device\":\"ESP32 Music Player\","
            "\"ip\":\"%u.%u.%u.%u\",\"uptime\":%llu,"
            "\"uptime_formatted\":\"%s\",\"wifi_rssi\":%d,"
            "\"free_heap\":%lu,\"dfplayer_uart\":\"%s\","
-           "\"dfplayer_last_response_ms\":%lu}",
+           "\"dfplayer_last_response_ms\":%lu,\"dfplayer_sd\":\"%s\","
+           "\"dfplayer_tracks\":%s,\"dfplayer_playback\":\"%s\"}",
            static_cast<unsigned int>(ip[0]),
            static_cast<unsigned int>(ip[1]),
            static_cast<unsigned int>(ip[2]),
@@ -106,7 +114,10 @@ void handleStatus(){
            static_cast<int>(WiFi.RSSI()),
            static_cast<unsigned long>(ESP.getFreeHeap()),
            dfPlayerDiagnostic.connectionStatus(),
-           static_cast<unsigned long>(dfPlayerDiagnostic.lastResponseMs()));
+           static_cast<unsigned long>(dfPlayerDiagnostic.lastResponseMs()),
+           dfPlayerDiagnostic.sdStatus(),
+           trackCount,
+           dfPlayerDiagnostic.playbackStatus());
 
   server.sendHeader("Cache-Control", "no-store");
   server.send(200, "application/json", response);
