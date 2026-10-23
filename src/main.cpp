@@ -8,6 +8,8 @@ WebServer server(80);
 bool wasConnectedToWiFi = false;
 bool wifiConfigured = false;
 bool webServerStarted = false;
+unsigned long lastReconnectAttempt = 0;
+const unsigned long reconnectInterval = 10000;
 
 void handleLandingPage(){
   Serial.print("Client connected from: ");
@@ -53,12 +55,32 @@ void handleNext(){
     server.send(200, "text/plain", "Next");
 }
 
+void handleStatus(){
+  const IPAddress ip = WiFi.localIP();
+  char response[160];
+  snprintf(response, sizeof(response),
+           "{\"online\":true,\"device\":\"ESP32 Music Player\","
+           "\"ip\":\"%u.%u.%u.%u\",\"uptime\":%lu,"
+           "\"wifi_rssi\":%d,\"free_heap\":%lu}",
+           static_cast<unsigned int>(ip[0]),
+           static_cast<unsigned int>(ip[1]),
+           static_cast<unsigned int>(ip[2]),
+           static_cast<unsigned int>(ip[3]),
+           static_cast<unsigned long>(millis() / 1000UL),
+           static_cast<int>(WiFi.RSSI()),
+           static_cast<unsigned long>(ESP.getFreeHeap()));
+
+  server.sendHeader("Cache-Control", "no-store");
+  server.send(200, "application/json", response);
+}
+
 void setupRoutes(){
   server.on("/", handleLandingPage);
   server.on("/play", handlePlay);
   server.on("/pause", handlePause);
   server.on("/resume", handleResume);
   server.on("/next", handleNext);
+  server.on("/api/status", HTTP_GET, handleStatus);
 }
 
 void startWebServer() {
@@ -87,18 +109,8 @@ void setup() {
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   wifiConfigured = true;
-
-  Serial.print("Connecting to home Wi-Fi");
-  const unsigned long connectionStarted = millis();
-  while (WiFi.status() != WL_CONNECTED &&
-         millis() - connectionStarted < 30000) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Could not connect; check Wi-Fi credentials. Will keep trying.");
-  }
+  lastReconnectAttempt = millis();
+  Serial.println("Connecting to home Wi-Fi");
 }
 
 void loop() {
@@ -109,15 +121,31 @@ void loop() {
 
   const bool connectedToWiFi = WiFi.status() == WL_CONNECTED;
   if (connectedToWiFi && !wasConnectedToWiFi) {
-    Serial.print("Connected to home Wi-Fi. Open http://");
+    Serial.println("Connected to Wi-Fi!");
+    Serial.print("IP: ");
     Serial.println(WiFi.localIP());
-    startWebServer();
+    Serial.print("Status endpoint: http://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/api/status");
+    Serial.print("Wi-Fi RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+    if (!webServerStarted) {
+      startWebServer();
+    }
   } else if (!connectedToWiFi && wasConnectedToWiFi) {
     Serial.println("Wi-Fi disconnected; waiting to reconnect");
   }
   wasConnectedToWiFi = connectedToWiFi;
 
-  if (webServerStarted) {
+  if (!connectedToWiFi &&
+      millis() - lastReconnectAttempt >= reconnectInterval) {
+    Serial.println("Retrying Wi-Fi connection");
+    WiFi.reconnect();
+    lastReconnectAttempt = millis();
+  }
+
+  if (webServerStarted && connectedToWiFi) {
     server.handleClient();
   }
 }
