@@ -65,8 +65,9 @@ class LedAlbumLighting {
   static constexpr uint8_t dataPin_ = 16;
   static constexpr uint8_t brightness_ = 20;
   static constexpr uint32_t frameIntervalMs_ = 33;
-  static constexpr uint32_t colorTransitionMs_ = 750;
-  static constexpr uint32_t halfCycleMs_ = 1500;
+  static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 500;
+  static constexpr uint32_t colorTransitionMs_ = LED_COLOR_SWAP_DURATION_MS;
+  static constexpr uint32_t halfCycleMs_ = LED_COLOR_SWAP_DURATION_MS;
   static constexpr uint32_t fullCycleMs_ = halfCycleMs_ * 2;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
   static constexpr uint32_t defaultColor2_ = 0xA9C7AE;
