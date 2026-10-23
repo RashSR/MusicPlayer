@@ -1,16 +1,18 @@
 let isShuffleEnabled = false;
 let isSeeking = false;
-let isPlaying = false;
 let currentTrack = null;
 let songsData = null;
 let allTracks = [];
-let playbackTimer = null;
 let currentTime = 0;
 let songDuration = 180;
+let currentSelectionId = 0;
+let lastPlayRequest = null;
+const pendingPlayTracks = new Set();
 
 const domElements = {
     currentSong: document.getElementById('currentSong'),
     currentAlbum: document.getElementById('currentAlbum'),
+    playbackMessage: document.getElementById('playbackMessage'),
     albumCover: document.getElementById('albumCover'),
     progressFill: document.querySelector('.progress-fill'),
     timeDisplay: document.querySelector('.time-display'),
@@ -58,8 +60,7 @@ function syncShuffleUI(mainShuffleBtn, miniShuffleBtn) {
 
 function playRandomTrack() {
     const randomIndex = Math.floor(Math.random() * allTracks.length);
-    const randomTrack = allTracks[randomIndex];
-    playTrack(randomTrack.id);
+    playTrackAtIndex(randomIndex);
 }
 
 function playNextTrack() {
@@ -75,7 +76,7 @@ function playNextTrack() {
     let nextIndex = currentIndex + 1;
     if(nextIndex >= allTracks.length)
         nextIndex = 0;
-    playTrack(allTracks[nextIndex].id);
+    playTrackAtIndex(nextIndex);
 }
 
 function playPreviousTrack() {
@@ -86,53 +87,107 @@ function playPreviousTrack() {
     let previousIndex = currentIndex - 1;
     if(previousIndex < 0) 
         previousIndex = allTracks.length - 1;
-    playTrack(allTracks[previousIndex].id);
+    playTrackAtIndex(previousIndex);
 }
 
 function getCurrentTrackIndex(){
-    const currentIndex =
-        allTracks.findIndex(
-            track => track.id === currentTrack.id
-        );
-    return currentIndex;
+    return allTracks.indexOf(currentTrack);
 }
 
-function playTrack(trackId) {
-    let foundTrack = null;
-    let foundAlbum = null;
-
-    songsData.albums.forEach(album => {
-        album.tracks.forEach(track => {
-            if(track.id === trackId) {
-                foundTrack = track;
-                foundAlbum = album;
-            }
-        });
-    });
-
-    if(!foundTrack) 
+function playTrackAtIndex(trackIndex) {
+    const foundTrack = allTracks[trackIndex];
+    if(!foundTrack)
         return;
 
+    const foundAlbum = songsData.albums.find(
+        album => album.name === foundTrack.album
+    );
+    if(!foundAlbum)
+        return;
+
+    const selectionId = ++currentSelectionId;
     currentTrack = foundTrack;
     openOnlyThisAlbum(foundAlbum.name);
     document.querySelectorAll('.track').forEach(track => {
         track.classList.remove('active');
     });
 
-    document.getElementById(`track-${trackId}`).classList.add('active');
+    document.getElementById(`track-${trackIndex}`).classList.add('active');
     domElements.currentSong.innerText = foundTrack.title;
     domElements.currentAlbum.innerText = foundAlbum.name;
     const cover = domElements.albumCover;
     cover.src = "albumCover/" + foundAlbum.cover;
     showCoverAndProgressbar(cover);
 
-    isPlaying = true;
+    clearPlaybackMessage();
     currentTime = 0;
-    updateProgressBar();    
-    startPlayback();
+    updateProgressBar();
     updateMiniPlayer(foundTrack, foundAlbum);
-    console.log('Now playing:', foundTrack.title);
-    fetch(`/play?id=${trackId}`);
+    console.log('[MusicPlayer] Selected song:', foundTrack.id);
+
+    if(!Number.isInteger(foundTrack.dfplayerTrack) ||
+       foundTrack.dfplayerTrack < 1 || foundTrack.dfplayerTrack > 9999) {
+        console.log('[MusicPlayer] No DFPlayer track mapping for song:', foundTrack.id);
+        setPlaybackMessage('This song is not available on the SD card yet.');
+        return;
+    }
+
+    console.log('[MusicPlayer] DFPlayer track:', foundTrack.dfplayerTrack);
+    sendPlayCommand(foundTrack, selectionId);
+}
+
+async function sendPlayCommand(track, selectionId) {
+    const now = Date.now();
+    const duplicateClick = lastPlayRequest &&
+        lastPlayRequest.track === track.dfplayerTrack &&
+        now - lastPlayRequest.time < 300;
+    if(pendingPlayTracks.has(track.dfplayerTrack) || duplicateClick) {
+        if(currentSelectionId === selectionId) {
+            const message = pendingPlayTracks.has(track.dfplayerTrack)
+                ? 'Play command is already being sent.'
+                : 'A play command was sent recently; audio playback is not confirmed.';
+            setPlaybackMessage(message);
+        }
+        return;
+    }
+
+    lastPlayRequest = { track: track.dfplayerTrack, time: now };
+    pendingPlayTracks.add(track.dfplayerTrack);
+    const url = `/play?id=${encodeURIComponent(track.dfplayerTrack)}`;
+    console.log('[MusicPlayer] Requesting', url);
+
+    try {
+        const response = await fetch(url);
+        if(currentSelectionId !== selectionId) {
+            return;
+        }
+        if(response.status === 400) {
+            setPlaybackMessage('The DFPlayer track number was rejected (HTTP 400).');
+        } else if(response.status === 503) {
+            setPlaybackMessage('DFPlayer could not send the command (HTTP 503). Try again shortly.');
+        } else if(!response.ok) {
+            setPlaybackMessage(`DFPlayer command was rejected (HTTP ${response.status}).`);
+        } else {
+            setPlaybackMessage('Command sent to DFPlayer; audio playback is not confirmed.');
+        }
+    } catch(error) {
+        if(currentSelectionId === selectionId) {
+            setPlaybackMessage('Could not contact the ESP32; playback command was not confirmed.');
+        }
+        console.error('DFPlayer play request failed:', error);
+    } finally {
+        pendingPlayTracks.delete(track.dfplayerTrack);
+    }
+}
+
+function setPlaybackMessage(message) {
+    if(domElements.playbackMessage) {
+        domElements.playbackMessage.textContent = message;
+    }
+}
+
+function clearPlaybackMessage() {
+    setPlaybackMessage('');
 }
 
 function showCoverAndProgressbar(cover){
@@ -140,43 +195,11 @@ function showCoverAndProgressbar(cover){
     document.getElementById('progressContainer').classList.remove('hidden');
 }
 
-function startPlayback() {
-    clearInterval(playbackTimer);
-    playbackTimer = setInterval(() => {
-        currentTime++;
-        updateProgressBar();
-        if(currentTime >= songDuration) {
-            clearInterval(playbackTimer);
-            playNextTrack();
-        }
-
-    }, 1000);
-}
-
 function togglePlayback() {
-    const btn = document.getElementById('playPauseBtn');
-    const miniBtn = document.getElementById('miniPlayBtn');
-
     if(!currentTrack) 
         return;
 
-    if(isPlaying){
-        clearInterval(playbackTimer);
-        isPlaying = false;
-        btn.classList.add('paused');
-        document.getElementById(`track-${currentTrack.id}`)?.classList.add('paused');
-        miniBtn.innerText = "▶";
-        console.log('Paused');
-    } 
-    else 
-    {
-        startPlayback();
-        isPlaying = true;
-        btn.classList.remove('paused');
-        document.getElementById(`track-${currentTrack.id}`)?.classList.remove('paused');
-        miniBtn.innerText = "⏸";
-        console.log('Resumed');
-    }
+    setPlaybackMessage('Pause and resume are not connected to the DFPlayer yet.');
 }
 
 function updateProgressBar() {
@@ -226,13 +249,15 @@ async function loadSongs() {
         let tracksHTML = '';
 
         album.tracks.forEach((track, index) => {
+            const catalogIndex = allTracks.length;
             allTracks.push({
                 id: track.id,
                 title: track.title,
                 album: album.name,
-                cover: album.cover
+                cover: album.cover,
+                dfplayerTrack: track.dfplayerTrack
             });
-            tracksHTML += createTrackHTML(track, index);
+            tracksHTML += createTrackHTML(track, index, catalogIndex);
         });
         albumDiv.innerHTML = `
             <div class="album-header" onclick="toggleAlbum(this)">
@@ -251,15 +276,15 @@ async function loadSongs() {
     });
 }
 
-function createTrackHTML(track, index) {
+function createTrackHTML(track, index, catalogIndex) {
     return `
-        <div class="track" id="track-${track.id}">
+        <div class="track" id="track-${catalogIndex}" onclick="playTrackAtIndex(${catalogIndex})">
             <div class="track-left">
                 <div class="track-number">${index + 1}</div>
                 <div class="track-name">${track.title}</div>
             </div>
 
-            <button onclick="playTrack(${track.id})">
+            <button onclick="event.stopPropagation(); playTrackAtIndex(${catalogIndex})">
                 Play
             </button>
         </div>

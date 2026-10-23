@@ -77,6 +77,13 @@
       margin-bottom: 16px;
     }
 
+    .song-info .playback-message {
+      min-height: 1em;
+      margin-top: -10px;
+      font-size: 0.85rem;
+      color: #b3b3b3;
+    }
+
     .time-display {
       margin-top: 8px;
       font-size: 0.9rem;
@@ -192,6 +199,7 @@
       padding: 12px;
       border-radius: 10px;
       transition: 0.2s;
+      cursor: pointer;
     }
 
     .track button {

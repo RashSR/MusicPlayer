@@ -44,11 +44,7 @@ class DFPlayerDiagnostic {
     } else if (!queryInFlight_ && started_ && !diagnosticComplete_ &&
                now - lastQueryFinishedAtMs_ >= commandIntervalMs) {
       sendCurrentQuery(now);
-    } else if (!queryInFlight_ && diagnosticComplete_ &&
-               now - lastQueryFinishedAtMs_ >= periodicQueryIntervalMs) {
-      sendCurrentQuery(now);
     }
-
   }
 
   bool playMp3Track(uint16_t track) {
@@ -102,7 +98,6 @@ class DFPlayerDiagnostic {
 
   static const uint32_t startupWaitMs = 2000;
   static const uint32_t commandIntervalMs = 500;
-  static const uint32_t periodicQueryIntervalMs = 5000;
   static const uint32_t responseTimeoutMs = 2000;
   static const uint32_t frameTimeoutMs = 250;
   static const uint32_t recentResponseMs = 15000;
