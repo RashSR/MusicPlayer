@@ -10,6 +10,33 @@ bool wifiConfigured = false;
 bool webServerStarted = false;
 unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 10000;
+uint32_t lastUptimeMillis = 0;
+uint64_t uptimeMilliseconds = 0;
+
+void updateUptime() {
+  const uint32_t currentMillis = millis();
+  uptimeMilliseconds += static_cast<uint32_t>(currentMillis - lastUptimeMillis);
+  lastUptimeMillis = currentMillis;
+}
+
+void formatUptime(uint64_t uptimeSeconds, char* buffer, size_t bufferSize) {
+  const unsigned long long days = uptimeSeconds / 86400ULL;
+  const unsigned long long hours = (uptimeSeconds / 3600ULL) % 24ULL;
+  const unsigned long long minutes = (uptimeSeconds / 60ULL) % 60ULL;
+  const unsigned long long seconds = uptimeSeconds % 60ULL;
+
+  if (days > 0) {
+    snprintf(buffer, bufferSize, "%llud %lluh %llum %llus",
+             days, hours, minutes, seconds);
+  } else if (hours > 0) {
+    snprintf(buffer, bufferSize, "%lluh %llum %llus",
+             hours, minutes, seconds);
+  } else if (minutes > 0) {
+    snprintf(buffer, bufferSize, "%llum %llus", minutes, seconds);
+  } else {
+    snprintf(buffer, bufferSize, "%llus", seconds);
+  }
+}
 
 void handleLandingPage(){
   Serial.print("Client connected from: ");
@@ -57,16 +84,21 @@ void handleNext(){
 
 void handleStatus(){
   const IPAddress ip = WiFi.localIP();
-  char response[160];
+  const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
+  char uptimeFormatted[48];
+  char response[256];
+  formatUptime(uptimeSeconds, uptimeFormatted, sizeof(uptimeFormatted));
   snprintf(response, sizeof(response),
            "{\"online\":true,\"device\":\"ESP32 Music Player\","
-           "\"ip\":\"%u.%u.%u.%u\",\"uptime\":%lu,"
-           "\"wifi_rssi\":%d,\"free_heap\":%lu}",
+           "\"ip\":\"%u.%u.%u.%u\",\"uptime\":%llu,"
+           "\"uptime_formatted\":\"%s\",\"wifi_rssi\":%d,"
+           "\"free_heap\":%lu}",
            static_cast<unsigned int>(ip[0]),
            static_cast<unsigned int>(ip[1]),
            static_cast<unsigned int>(ip[2]),
            static_cast<unsigned int>(ip[3]),
-           static_cast<unsigned long>(millis() / 1000UL),
+           static_cast<unsigned long long>(uptimeSeconds),
+           uptimeFormatted,
            static_cast<int>(WiFi.RSSI()),
            static_cast<unsigned long>(ESP.getFreeHeap()));
 
@@ -114,6 +146,7 @@ void setup() {
 }
 
 void loop() {
+  updateUptime();
   if (!wifiConfigured) {
     delay(1000);
     return;
