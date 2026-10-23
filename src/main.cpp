@@ -57,15 +57,42 @@ void handleLandingPage(){
 
 void handlePlay(){
   if (!server.hasArg("id")) {
-      server.send(400, "text/plain", "Missing ID");
-      return;
+    server.send(400, "text/plain", "Missing ID");
+    return;
   }
 
-  String trackId = server.arg("id");
+  const String trackId = server.arg("id");
+  uint16_t track = 0;
+  bool validTrackId = trackId.length() > 0;
+  for (size_t i = 0; i < trackId.length(); ++i) {
+    const char digit = trackId[i];
+    if (digit < '0' || digit > '9') {
+      validTrackId = false;
+      break;
+    }
+
+    const uint8_t value = static_cast<uint8_t>(digit - '0');
+    if (track > (9999 - value) / 10) {
+      validTrackId = false;
+      break;
+    }
+    track = static_cast<uint16_t>(track * 10 + value);
+  }
+
+  if (!validTrackId || track == 0) {
+    server.send(400, "text/plain",
+                "Invalid ID: expected a decimal integer from 1 to 9999");
+    return;
+  }
+
   Serial.print("PLAY TRACK: ");
-  Serial.println(trackId);
-  // DFPlayer.play(trackId.toInt());
-  server.send(200, "text/plain", "OK");
+  Serial.println(track);
+  if (!dfPlayerDiagnostic.playMp3Track(track)) {
+    server.send(503, "text/plain",
+                "DFPlayer command could not be sent; a diagnostic query may be in progress.");
+    return;
+  }
+  server.send(200, "text/plain", "DFPlayer play command sent");
 }
 
 void handlePause(){
