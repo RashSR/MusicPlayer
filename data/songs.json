@@ -4,7 +4,7 @@
       "name": "Taylor Swift",
       "cover": "taylor_swift.jpg",
       "tracks": [
-        { "id": 101, "title": "Tim McGraw" },
+        { "id": 101, "title": "Tim McGraw", "dfplayerTrack": 1 },
         { "id": 102, "title": "Picture to Burn" },
         { "id": 103, "title": "Teardrops on My Guitar" },
         { "id": 104, "title": "A Place in This World" },

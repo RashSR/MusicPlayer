@@ -1,13 +1,13 @@
 let isShuffleEnabled = false;
 let isSeeking = false;
+let isPlaying = false;
 let currentTrack = null;
 let songsData = null;
 let allTracks = [];
+let playbackTimer = null;
 let currentTime = 0;
 let songDuration = 180;
 let currentSelectionId = 0;
-let lastPlayRequest = null;
-const pendingPlayTracks = new Set();
 
 const domElements = {
     currentSong: document.getElementById('currentSong'),
@@ -123,60 +123,60 @@ function playTrackAtIndex(trackIndex) {
     currentTime = 0;
     updateProgressBar();
     updateMiniPlayer(foundTrack, foundAlbum);
-    console.log('[MusicPlayer] Selected song:', foundTrack.id);
+    startPlayback();
+    console.log('[MusicPlayer] Selected song:', foundTrack.title);
+    console.log('[MusicPlayer] Catalog ID:', foundTrack.id);
+    console.log('[MusicPlayer] DFPlayer track:', foundTrack.dfplayerTrack);
 
-    if(!Number.isInteger(foundTrack.dfplayerTrack) ||
-       foundTrack.dfplayerTrack < 1 || foundTrack.dfplayerTrack > 9999) {
+    const hasMappedTrack = Number.isInteger(foundTrack.dfplayerTrack) &&
+        foundTrack.dfplayerTrack >= 1 && foundTrack.dfplayerTrack <= 9999;
+    const metadata = `album=${encodeURIComponent(foundTrack.album)}` +
+        `&title=${encodeURIComponent(foundTrack.title)}` +
+        `&catalogId=${encodeURIComponent(foundTrack.id)}`;
+    const url = hasMappedTrack
+        ? `/play?id=${encodeURIComponent(foundTrack.dfplayerTrack)}` +
+            `&${metadata}&dfplayerTrack=${encodeURIComponent(foundTrack.dfplayerTrack)}`
+        : `/api/play-selection?${metadata}`;
+
+    if(!hasMappedTrack) {
         console.log('[MusicPlayer] No DFPlayer track mapping for song:', foundTrack.id);
+        console.log('[MusicPlayer] DFPlayer playback request: not sent.');
         setPlaybackMessage('This song is not available on the SD card yet.');
-        return;
+    } else {
+        console.log('[MusicPlayer] DFPlayer playback request: sending.');
     }
 
-    console.log('[MusicPlayer] DFPlayer track:', foundTrack.dfplayerTrack);
-    sendPlayCommand(foundTrack, selectionId);
+    console.log('[MusicPlayer] Selection metadata request: sending.');
+    sendSelectionRequest(selectionId, url, hasMappedTrack);
 }
 
-async function sendPlayCommand(track, selectionId) {
-    const now = Date.now();
-    const duplicateClick = lastPlayRequest &&
-        lastPlayRequest.track === track.dfplayerTrack &&
-        now - lastPlayRequest.time < 300;
-    if(pendingPlayTracks.has(track.dfplayerTrack) || duplicateClick) {
-        if(currentSelectionId === selectionId) {
-            const message = pendingPlayTracks.has(track.dfplayerTrack)
-                ? 'Play command is already being sent.'
-                : 'A play command was sent recently; audio playback is not confirmed.';
-            setPlaybackMessage(message);
-        }
-        return;
-    }
-
-    lastPlayRequest = { track: track.dfplayerTrack, time: now };
-    pendingPlayTracks.add(track.dfplayerTrack);
-    const url = `/play?id=${encodeURIComponent(track.dfplayerTrack)}`;
+async function sendSelectionRequest(selectionId, url, hasMappedTrack) {
     console.log('[MusicPlayer] Requesting', url);
 
     try {
         const response = await fetch(url);
+        console.log('[MusicPlayer] HTTP response status:', response.status);
         if(currentSelectionId !== selectionId) {
             return;
         }
         if(response.status === 400) {
-            setPlaybackMessage('The DFPlayer track number was rejected (HTTP 400).');
-        } else if(response.status === 503) {
+            setPlaybackMessage('The song selection was rejected (HTTP 400).');
+        } else if(hasMappedTrack && response.status === 503) {
             setPlaybackMessage('DFPlayer could not send the command (HTTP 503). Try again shortly.');
         } else if(!response.ok) {
-            setPlaybackMessage(`DFPlayer command was rejected (HTTP ${response.status}).`);
+            setPlaybackMessage(`Song request was rejected (HTTP ${response.status}).`);
+        } else if(!hasMappedTrack) {
+            setPlaybackMessage('This song is not available on the SD card yet.');
         } else {
             setPlaybackMessage('Command sent to DFPlayer; audio playback is not confirmed.');
         }
     } catch(error) {
         if(currentSelectionId === selectionId) {
-            setPlaybackMessage('Could not contact the ESP32; playback command was not confirmed.');
+            setPlaybackMessage(hasMappedTrack
+                ? 'Could not contact the ESP32; playback command was not confirmed.'
+                : 'Could not contact the ESP32; song selection was not logged.');
         }
-        console.error('DFPlayer play request failed:', error);
-    } finally {
-        pendingPlayTracks.delete(track.dfplayerTrack);
+        console.error('[MusicPlayer] Selection request failed:', error);
     }
 }
 
@@ -199,7 +199,41 @@ function togglePlayback() {
     if(!currentTrack) 
         return;
 
-    setPlaybackMessage('Pause and resume are not connected to the DFPlayer yet.');
+    const trackIndex = getCurrentTrackIndex();
+    const selectedRow = document.getElementById(`track-${trackIndex}`);
+    const button = document.getElementById('playPauseBtn');
+    const miniButton = document.getElementById('miniPlayBtn');
+
+    if(isPlaying) {
+        clearInterval(playbackTimer);
+        playbackTimer = null;
+        isPlaying = false;
+        button.classList.add('paused');
+        selectedRow?.classList.add('paused');
+        miniButton.innerText = '▶';
+        console.log('[MusicPlayer] Simulated timeline paused.');
+    } else {
+        startPlayback();
+        console.log('[MusicPlayer] Simulated timeline resumed.');
+    }
+}
+
+function startPlayback() {
+    clearInterval(playbackTimer);
+    isPlaying = true;
+    document.getElementById('playPauseBtn').classList.remove('paused');
+    document.getElementById(`track-${getCurrentTrackIndex()}`)?.classList.remove('paused');
+    document.getElementById('miniPlayBtn').innerText = '⏸';
+
+    playbackTimer = setInterval(() => {
+        currentTime++;
+        updateProgressBar();
+        if(currentTime >= songDuration) {
+            clearInterval(playbackTimer);
+            playbackTimer = null;
+            playNextTrack();
+        }
+    }, 1000);
 }
 
 function updateProgressBar() {
@@ -384,4 +418,12 @@ window.addEventListener('DOMContentLoaded', () => {
     loadSongs();
     initSeek('.progress');
     initSeek('.mini-progress');
+});
+
+window.addEventListener('error', event => {
+    console.error('[MusicPlayer] JavaScript exception:', event.error || event.message);
+});
+
+window.addEventListener('unhandledrejection', event => {
+    console.error('[MusicPlayer] Unhandled promise rejection:', event.reason);
 });

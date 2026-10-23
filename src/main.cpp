@@ -41,23 +41,163 @@ void formatUptime(uint64_t uptimeSeconds, char* buffer, size_t bufferSize) {
   }
 }
 
+const char* httpMethodName(HTTPMethod method) {
+  switch (method) {
+    case HTTP_GET:
+      return "GET";
+    case HTTP_POST:
+      return "POST";
+    case HTTP_PUT:
+      return "PUT";
+    case HTTP_DELETE:
+      return "DELETE";
+    case HTTP_OPTIONS:
+      return "OPTIONS";
+    case HTTP_HEAD:
+      return "HEAD";
+    case HTTP_PATCH:
+      return "PATCH";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+void logHttpResponse(int statusCode) {
+  Serial.print("[HTTP] ");
+  Serial.print(httpMethodName(server.method()));
+  Serial.print(" ");
+  Serial.print(server.uri());
+  if (server.uri() == "/play" && server.hasArg("id")) {
+    const String id = server.arg("id");
+    Serial.print("?id=");
+    bool validIdForLog = id.length() > 0 && id.length() <= 4;
+    for (size_t i = 0; validIdForLog && i < id.length(); ++i) {
+      validIdForLog = id[i] >= '0' && id[i] <= '9';
+    }
+    if (validIdForLog) {
+      Serial.print(id);
+    } else {
+      Serial.print("<invalid>");
+    }
+  }
+  Serial.print(" -> ");
+  Serial.println(statusCode);
+}
+
+void sendHttpResponse(int statusCode, const char* contentType,
+                      const String& body) {
+  logHttpResponse(statusCode);
+  server.send(statusCode, contentType, body);
+}
+
+void handleNotFound() {
+  sendHttpResponse(404, "text/plain", "Not found: " + server.uri());
+}
+
+void handleStaticFile(const char* path, const char* contentType) {
+  File file = LittleFS.open(path, "r");
+  if (!file) {
+    sendHttpResponse(404, "text/plain", "Not found: " + String(path));
+    return;
+  }
+
+  logHttpResponse(200);
+  server.streamFile(file, contentType);
+  file.close();
+}
+
 void handleLandingPage(){
   Serial.print("Client connected from: ");
   Serial.println(server.client().remoteIP());
-  Serial.println("ROOT requested");
   File file = LittleFS.open("/index.html", "r");
   if (!file) {
     Serial.println("index.html NOT FOUND in LittleFS");
-    server.send(500, "text/plain", "File not found");
+    sendHttpResponse(500, "text/plain", "File not found");
     return;
   }
+  logHttpResponse(200);
   server.streamFile(file, "text/html");
   file.close(); 
 }
 
+bool parsePositiveDecimal(const String& text, uint32_t maxValue,
+                          uint32_t& value) {
+  if (text.length() == 0) {
+    return false;
+  }
+
+  value = 0;
+  for (size_t i = 0; i < text.length(); ++i) {
+    const char digit = text[i];
+    if (digit < '0' || digit > '9') {
+      return false;
+    }
+
+    const uint8_t digitValue = static_cast<uint8_t>(digit - '0');
+    if (value > (maxValue - digitValue) / 10) {
+      return false;
+    }
+    value = value * 10 + digitValue;
+  }
+
+  return value > 0;
+}
+
+bool isValidMetadataText(const String& value, size_t maxLength) {
+  if (value.length() == 0 || value.length() > maxLength) {
+    return false;
+  }
+
+  for (size_t i = 0; i < value.length(); ++i) {
+    const uint8_t character = static_cast<uint8_t>(value[i]);
+    if (character < 0x20 || character == 0x7F) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool hasSelectionMetadata() {
+  return server.hasArg("album") || server.hasArg("title") ||
+         server.hasArg("catalogId") || server.hasArg("dfplayerTrack");
+}
+
+bool readSelectionMetadata(String& album, String& title,
+                           uint32_t& catalogId, uint32_t& dfplayerTrack,
+                           bool requireTrack) {
+  if (!server.hasArg("album") || !server.hasArg("title") ||
+      !server.hasArg("catalogId") ||
+      (requireTrack && !server.hasArg("dfplayerTrack")) ||
+      (!requireTrack && server.hasArg("dfplayerTrack"))) {
+    return false;
+  }
+
+  album = server.arg("album");
+  title = server.arg("title");
+  return isValidMetadataText(album, 80) &&
+         isValidMetadataText(title, 120) &&
+         parsePositiveDecimal(server.arg("catalogId"), 999999999, catalogId) &&
+         (!requireTrack ||
+          parsePositiveDecimal(server.arg("dfplayerTrack"), 9999,
+                               dfplayerTrack));
+}
+
+void logPlaySelection(const String& album, const String& title,
+                      uint32_t catalogId, const String& dfplayerTrack) {
+  Serial.println("[MusicPlayer] Play requested");
+  Serial.print("[MusicPlayer] Album: ");
+  Serial.println(album);
+  Serial.print("[MusicPlayer] Song: ");
+  Serial.println(title);
+  Serial.print("[MusicPlayer] Catalog ID: ");
+  Serial.println(catalogId);
+  Serial.print("[MusicPlayer] DFPlayer track: ");
+  Serial.println(dfplayerTrack);
+}
+
 void handlePlay(){
   if (!server.hasArg("id")) {
-    server.send(400, "text/plain", "Missing ID");
+    sendHttpResponse(400, "text/plain", "Missing ID");
     return;
   }
 
@@ -80,36 +220,69 @@ void handlePlay(){
   }
 
   if (!validTrackId || track == 0) {
-    server.send(400, "text/plain",
-                "Invalid ID: expected a decimal integer from 1 to 9999");
+    sendHttpResponse(400, "text/plain",
+                     "Invalid ID: expected a decimal integer from 1 to 9999");
     return;
+  }
+
+  String album;
+  String title;
+  uint32_t catalogId = 0;
+  uint32_t mappedTrack = 0;
+  if (hasSelectionMetadata()) {
+    if (!readSelectionMetadata(album, title, catalogId, mappedTrack, true) ||
+        mappedTrack != track) {
+      sendHttpResponse(400, "text/plain",
+                       "Invalid or incomplete song metadata");
+      return;
+    }
+    logPlaySelection(album, title, catalogId, String(track));
+  } else {
+    logPlaySelection("metadata unavailable", "metadata unavailable", 0,
+                     String(track));
   }
 
   Serial.print("PLAY TRACK: ");
   Serial.println(track);
   if (!dfPlayerDiagnostic.playMp3Track(track)) {
-    server.send(503, "text/plain",
-                "DFPlayer command could not be sent; a diagnostic query may be in progress.");
+    sendHttpResponse(
+        503, "text/plain",
+        "DFPlayer command could not be sent; a diagnostic query may be in progress.");
     return;
   }
-  server.send(200, "text/plain", "DFPlayer play command sent");
+  sendHttpResponse(200, "text/plain", "DFPlayer play command sent");
+}
+
+void handlePlaySelection(){
+  String album;
+  String title;
+  uint32_t catalogId = 0;
+  uint32_t unusedTrack = 0;
+  if (!readSelectionMetadata(album, title, catalogId, unusedTrack, false)) {
+    sendHttpResponse(400, "text/plain", "Invalid or incomplete song metadata");
+    return;
+  }
+
+  logPlaySelection(album, title, catalogId, "not mapped");
+  sendHttpResponse(200, "text/plain",
+                   "Song selection logged; no play command sent");
 }
 
 void handlePause(){
   Serial.println("PAUSE");
   // dfplayer.pause();
-  server.send(200, "text/plain", "Paused");
+  sendHttpResponse(200, "text/plain", "Paused");
 }
 
 void handleResume(){
   Serial.println("RESUME");
   // dfplayer.start();
-  server.send(200, "text/plain", "Resumed");
+  sendHttpResponse(200, "text/plain", "Resumed");
 }
 
 void handleNext(){
     Serial.println("NEXT TRACK");
-    server.send(200, "text/plain", "Next");
+    sendHttpResponse(200, "text/plain", "Next");
 }
 
 void handleStatus(){
@@ -147,16 +320,30 @@ void handleStatus(){
            dfPlayerDiagnostic.playbackStatus());
 
   server.sendHeader("Cache-Control", "no-store");
-  server.send(200, "application/json", response);
+  sendHttpResponse(200, "application/json", response);
 }
 
 void setupRoutes(){
   server.on("/", handleLandingPage);
+  server.on("/app.js", HTTP_GET, []() {
+    handleStaticFile("/app.js", "text/javascript");
+  });
+  server.on("/style.css", HTTP_GET, []() {
+    handleStaticFile("/style.css", "text/css");
+  });
+  server.on("/songs.json", HTTP_GET, []() {
+    handleStaticFile("/songs.json", "application/json");
+  });
+  server.on("/favicon.ico", HTTP_GET, []() {
+    sendHttpResponse(204, "image/x-icon", "");
+  });
   server.on("/play", handlePlay);
+  server.on("/api/play-selection", HTTP_GET, handlePlaySelection);
   server.on("/pause", handlePause);
   server.on("/resume", handleResume);
   server.on("/next", handleNext);
   server.on("/api/status", HTTP_GET, handleStatus);
+  server.onNotFound(handleNotFound);
 }
 
 void startWebServer() {
