@@ -1,18 +1,23 @@
 #pragma once
 
 #include <Arduino.h>
+#include <DFRobotDFPlayerMini.h>
 #include <HardwareSerial.h>
 #include <string.h>
 
 class DFPlayerDiagnostic {
  public:
-  explicit DFPlayerDiagnostic(HardwareSerial& serial) : serial_(serial) {}
+  explicit DFPlayerDiagnostic(HardwareSerial& serial)
+      : serial_(serial) {}
 
   void begin() {
+    Serial.println("[DFPlayer] Serial diagnostics use 115200 baud.");
     Serial.println("[DFPlayer] Initializing UART1...");
     serial_.begin(9600, SERIAL_8N1, 18, 17);
     Serial.println("[DFPlayer] UART initialized");
     Serial.println("[DFPlayer] RX=18 TX=17 Baud=9600");
+    Serial.println("[DFPlayer] Initializing player without reset or ACK wait.");
+    initializePlayer();
     Serial.println("[DFPlayer] Allowing 2 seconds for module and SD initialization.");
     startedAtMs_ = millis();
   }
@@ -48,14 +53,116 @@ class DFPlayerDiagnostic {
   }
 
   bool playMp3Track(uint16_t track) {
-    if (track == 0 || track > 9999 || queryInFlight_) {
+    if (!playerInitialized_ || track == 0 || track > 9999) {
       return false;
     }
-    if (!sendCommand(0x12, track)) {
-      return false;
-    }
+    player_.playMp3Folder(track);
+    Serial.print("[DFPlayer] playMp3Folder(");
+    Serial.print(track);
+    Serial.println(") sent.");
     playbackStatus_ = "unknown";
     return true;
+  }
+
+  void initialize() {
+    initializePlayer();
+  }
+
+  bool setVolume(uint8_t volume) {
+    if (!playerInitialized_ || volume > 30) {
+      return false;
+    }
+    player_.volume(volume);
+    volume_ = volume;
+    Serial.print("[DFPlayer] Volume set to ");
+    Serial.println(volume);
+    return true;
+  }
+
+  bool pause() {
+    if (!playerInitialized_) {
+      return false;
+    }
+    player_.pause();
+    playbackStatus_ = "paused";
+    Serial.println("[DFPlayer] Pause command sent.");
+    return true;
+  }
+
+  bool resume() {
+    if (!playerInitialized_) {
+      return false;
+    }
+    player_.start();
+    playbackStatus_ = "playing";
+    Serial.println("[DFPlayer] Resume command sent.");
+    return true;
+  }
+
+  bool stop() {
+    if (!playerInitialized_) {
+      return false;
+    }
+    player_.stop();
+    playbackStatus_ = "stopped";
+    Serial.println("[DFPlayer] Stop command sent.");
+    return true;
+  }
+
+  bool next() {
+    if (!playerInitialized_) {
+      return false;
+    }
+    player_.next();
+    playbackStatus_ = "unknown";
+    Serial.println("[DFPlayer] Next-track command sent.");
+    return true;
+  }
+
+  bool previous() {
+    if (!playerInitialized_) {
+      return false;
+    }
+    player_.previous();
+    playbackStatus_ = "unknown";
+    Serial.println("[DFPlayer] Previous-track command sent.");
+    return true;
+  }
+
+  void requestStatus() {
+    if (queryInFlight_) {
+      Serial.println("[DFPlayer] A status query is already in progress.");
+      return;
+    }
+    queryStep_ = QueryStorage;
+    attempts_ = 0;
+    diagnosticComplete_ = false;
+    lastQueryFinishedAtMs_ = 0;
+    Serial.println("[DFPlayer] Status query scheduled.");
+  }
+
+  void printStatus() {
+    Serial.print("[DFPlayer] Command interface ready: ");
+    Serial.println(playerInitialized_ ? "yes" : "no");
+    Serial.print("[DFPlayer] UART: ");
+    Serial.println(connectionStatus());
+    Serial.print("[DFPlayer] SD card: ");
+    Serial.println(sdStatus_);
+    Serial.print("[DFPlayer] Recognized tracks: ");
+    if (hasTrackCount_) {
+      Serial.println(trackCount_);
+    } else {
+      Serial.println("unknown");
+    }
+    Serial.print("[DFPlayer] Playback: ");
+    Serial.println(playbackStatus_);
+    Serial.print("[DFPlayer] Volume: ");
+    if (volume_ >= 0) {
+      Serial.println(volume_);
+    } else {
+      Serial.println("unknown");
+    }
+    requestStatus();
   }
 
   const char* connectionStatus() const {
@@ -105,6 +212,7 @@ class DFPlayerDiagnostic {
   static const size_t frameSize = 10;
 
   HardwareSerial& serial_;
+  DFRobotDFPlayerMini player_;
   uint8_t frame_[frameSize] = {};
   size_t frameLength_ = 0;
   uint32_t startedAtMs_ = 0;
@@ -113,6 +221,7 @@ class DFPlayerDiagnostic {
   uint32_t frameStartedAtMs_ = 0;
   uint32_t lastResponseMs_ = 0;
   uint16_t trackCount_ = 0;
+  int8_t volume_ = -1;
   uint8_t attempts_ = 0;
   QueryStep queryStep_ = QueryStorage;
   bool started_ = false;
@@ -121,8 +230,19 @@ class DFPlayerDiagnostic {
   bool diagnosticComplete_ = false;
   bool hasValidResponse_ = false;
   bool hasTrackCount_ = false;
+  bool playerInitialized_ = false;
   const char* sdStatus_ = "unknown";
   const char* playbackStatus_ = "unknown";
+
+  void initializePlayer() {
+    playerInitialized_ = player_.begin(serial_, false, false);
+    if (playerInitialized_) {
+      Serial.println("[DFPlayer] Command interface ready; checking module presence via UART.");
+      setVolume(15);
+    } else {
+      Serial.println("[DFPlayer] DFRobotDFPlayerMini command interface initialization failed.");
+    }
+  }
 
   uint8_t expectedCommand() const {
     switch (queryStep_) {
@@ -203,13 +323,65 @@ class DFPlayerDiagnostic {
         static_cast<uint16_t>((frame_[5] << 8) | frame_[6]);
 
     if (command == 0x40) {
-      Serial.print("[DFPlayer] Error response: 0x40, parameter: 0x");
-      printHexByte(frame_[5]);
-      printHexByte(frame_[6]);
-      Serial.println();
+      Serial.print("[DFPlayer] Player error code: ");
+      Serial.println(parameter);
+      switch (parameter) {
+        case 1:
+          Serial.println("[DFPlayer] Error: module is busy.");
+          break;
+        case 2:
+          Serial.println("[DFPlayer] Error: module is sleeping.");
+          break;
+        case 3:
+          Serial.println("[DFPlayer] Error: serial receive error.");
+          break;
+        case 4:
+          Serial.println("[DFPlayer] Error: checksum mismatch.");
+          break;
+        case 5:
+          Serial.println("[DFPlayer] Error: requested track is out of range.");
+          break;
+        case 6:
+          Serial.println("[DFPlayer] Error: sleep command received.");
+          break;
+        case 7:
+          Serial.println("[DFPlayer] Error: invalid serial command.");
+          break;
+        case 8:
+          Serial.println("[DFPlayer] Error: serial checksum error.");
+          break;
+        case 9:
+          Serial.println("[DFPlayer] Error: file not found on the SD card.");
+          break;
+        case 11:
+          Serial.println("[DFPlayer] Error: SD card not found.");
+          sdStatus_ = "not_detected";
+          break;
+        default:
+          break;
+      }
+      playbackStatus_ = "error";
       if (queryInFlight_) {
         failCurrentQuery(now);
       }
+      frameLength_ = 0;
+      return;
+    }
+
+    if (command == 0x3A) {
+      sdStatus_ = "detected";
+      Serial.println("[DFPlayer] SD card inserted.");
+      frameLength_ = 0;
+      return;
+    }
+    if (command == 0x3B) {
+      sdStatus_ = "not_detected";
+      Serial.println("[DFPlayer] SD card removed.");
+      frameLength_ = 0;
+      return;
+    }
+    if (command == 0x3C) {
+      Serial.println("[DFPlayer] Module is online.");
       frameLength_ = 0;
       return;
     }

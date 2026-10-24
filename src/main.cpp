@@ -17,6 +17,8 @@ unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 10000;
 uint32_t lastUptimeMillis = 0;
 uint64_t uptimeMilliseconds = 0;
+char serialCommand[32];
+size_t serialCommandLength = 0;
 
 void updateUptime() {
   const uint32_t currentMillis = millis();
@@ -344,7 +346,7 @@ void handlePlay(){
   if (!dfPlayerDiagnostic.playMp3Track(track)) {
     sendHttpResponse(
         503, "text/plain",
-        "DFPlayer command could not be sent; a diagnostic query may be in progress.");
+        "DFPlayer is not initialized or the command could not be sent.");
     return;
   }
   sendHttpResponse(200, "text/plain", "DFPlayer play command sent");
@@ -379,20 +381,43 @@ void handlePlaySelection(){
 }
 
 void handlePause(){
-  Serial.println("PAUSE");
-  // dfplayer.pause();
+  if (!dfPlayerDiagnostic.pause()) {
+    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+    return;
+  }
   sendHttpResponse(200, "text/plain", "Paused");
 }
 
 void handleResume(){
-  Serial.println("RESUME");
-  // dfplayer.start();
+  if (!dfPlayerDiagnostic.resume()) {
+    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+    return;
+  }
   sendHttpResponse(200, "text/plain", "Resumed");
 }
 
 void handleNext(){
-    Serial.println("NEXT TRACK");
-    sendHttpResponse(200, "text/plain", "Next");
+  if (!dfPlayerDiagnostic.next()) {
+    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+    return;
+  }
+  sendHttpResponse(200, "text/plain", "Next");
+}
+
+void handlePrevious(){
+  if (!dfPlayerDiagnostic.previous()) {
+    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+    return;
+  }
+  sendHttpResponse(200, "text/plain", "Previous");
+}
+
+void handleStop(){
+  if (!dfPlayerDiagnostic.stop()) {
+    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+    return;
+  }
+  sendHttpResponse(200, "text/plain", "Stopped");
 }
 
 void handleStatus(){
@@ -452,8 +477,86 @@ void setupRoutes(){
   server.on("/pause", handlePause);
   server.on("/resume", handleResume);
   server.on("/next", handleNext);
+  server.on("/previous", handlePrevious);
+  server.on("/stop", handleStop);
   server.on("/api/status", HTTP_GET, handleStatus);
   server.onNotFound(handleNotFound);
+}
+
+void printSerialHelp() {
+  Serial.println("[DFPlayer] Serial commands (end each with Enter):");
+  Serial.println("  status  - print cached status and query the module");
+  Serial.println("  init    - reinitialize the DFPlayer library");
+  Serial.println("  volume  - set volume to 15 (range 0-30)");
+  Serial.println("  play    - play /mp3/0001.mp3");
+  Serial.println("  pause   - pause playback");
+  Serial.println("  resume  - resume playback");
+  Serial.println("  stop    - stop playback");
+  Serial.println("  next    - play next SD track");
+  Serial.println("  prev    - play previous SD track");
+}
+
+void processSerialCommand() {
+  serialCommand[serialCommandLength] = '\0';
+  if (strcmp(serialCommand, "help") == 0) {
+    printSerialHelp();
+  } else if (strcmp(serialCommand, "status") == 0) {
+    dfPlayerDiagnostic.printStatus();
+  } else if (strcmp(serialCommand, "init") == 0) {
+    dfPlayerDiagnostic.initialize();
+  } else if (strcmp(serialCommand, "volume") == 0) {
+    if (!dfPlayerDiagnostic.setVolume(15)) {
+      Serial.println("[DFPlayer] Cannot set volume: player is not initialized.");
+    }
+  } else if (strcmp(serialCommand, "play") == 0) {
+    if (!dfPlayerDiagnostic.playMp3Track(1)) {
+      Serial.println("[DFPlayer] Cannot play: player is not initialized.");
+    }
+  } else if (strcmp(serialCommand, "pause") == 0) {
+    if (!dfPlayerDiagnostic.pause()) {
+      Serial.println("[DFPlayer] Cannot pause: player is not initialized.");
+    }
+  } else if (strcmp(serialCommand, "resume") == 0) {
+    if (!dfPlayerDiagnostic.resume()) {
+      Serial.println("[DFPlayer] Cannot resume: player is not initialized.");
+    }
+  } else if (strcmp(serialCommand, "stop") == 0) {
+    if (!dfPlayerDiagnostic.stop()) {
+      Serial.println("[DFPlayer] Cannot stop: player is not initialized.");
+    }
+  } else if (strcmp(serialCommand, "next") == 0) {
+    if (!dfPlayerDiagnostic.next()) {
+      Serial.println("[DFPlayer] Cannot skip: player is not initialized.");
+    }
+  } else if (strcmp(serialCommand, "prev") == 0) {
+    if (!dfPlayerDiagnostic.previous()) {
+      Serial.println("[DFPlayer] Cannot go back: player is not initialized.");
+    }
+  } else if (serialCommandLength > 0) {
+    Serial.print("[DFPlayer] Unknown command: ");
+    Serial.println(serialCommand);
+    printSerialHelp();
+  }
+  serialCommandLength = 0;
+}
+
+void updateSerialCommands() {
+  while (Serial.available() > 0) {
+    const char character = static_cast<char>(Serial.read());
+    if (character == '\r') {
+      continue;
+    }
+    if (character == '\n') {
+      processSerialCommand();
+      continue;
+    }
+    if (serialCommandLength + 1 < sizeof(serialCommand)) {
+      serialCommand[serialCommandLength++] = character;
+    } else {
+      serialCommandLength = 0;
+      Serial.println("[DFPlayer] Command too long; input discarded.");
+    }
+  }
 }
 
 void startWebServer() {
@@ -467,6 +570,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   dfPlayerDiagnostic.begin();
+  printSerialHelp();
   ledAlbumLighting.begin();
   if (!LittleFS.begin()) {
     Serial.println("LittleFS mount failed");
@@ -491,6 +595,7 @@ void setup() {
 void loop() {
   updateUptime();
   dfPlayerDiagnostic.update();
+  updateSerialCommands();
   ledAlbumLighting.update();
   if (!wifiConfigured) {
     delay(1);

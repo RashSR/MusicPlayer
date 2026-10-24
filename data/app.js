@@ -225,9 +225,24 @@ function togglePlayback() {
         selectedRow?.classList.add('paused');
         miniButton.innerText = '▶';
         console.log('[MusicPlayer] Simulated timeline paused.');
+        requestPlaybackControl('/pause');
     } else {
         startPlayback();
         console.log('[MusicPlayer] Simulated timeline resumed.');
+        requestPlaybackControl('/resume');
+    }
+}
+
+async function requestPlaybackControl(path) {
+    try {
+        const response = await fetch(path);
+        if(!response.ok) {
+            console.error('[MusicPlayer] Playback control failed:',
+                path, response.status);
+        }
+    } catch(error) {
+        console.error('[MusicPlayer] Playback control request failed:',
+            path, error);
     }
 }
 
