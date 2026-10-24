@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <string.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include "wifi_credentials.h"
@@ -23,6 +24,34 @@ size_t serialCommandLength = 0;
 uint32_t lastPlaybackRequestId = 0;
 uint32_t lastPlaybackRequestAtMs = 0;
 bool hasRecentPlaybackRequest = false;
+uint32_t nowPlayingSongId = 0;
+String nowPlayingSongTitle;
+String nowPlayingAlbum;
+uint32_t nowPlayingElapsedSeconds = 0;
+uint32_t nowPlayingDurationSeconds = 0;
+bool hasNowPlayingSong = false;
+bool hasNowPlayingDuration = false;
+enum class PlaybackState : uint8_t {
+  Unknown,
+  Playing,
+  Paused,
+  Stopped
+};
+PlaybackState playbackState = PlaybackState::Unknown;
+
+const char* playbackDisplay() {
+  switch (playbackState) {
+    case PlaybackState::Playing:
+      return "▶ Playing";
+    case PlaybackState::Paused:
+      return "⏸ Paused";
+    case PlaybackState::Stopped:
+      return "■ Stopped";
+    case PlaybackState::Unknown:
+    default:
+      return "Unknown";
+  }
+}
 
 void updateUptime() {
   const uint32_t currentMillis = millis();
@@ -46,6 +75,27 @@ void formatUptime(uint64_t uptimeSeconds, char* buffer, size_t bufferSize) {
     snprintf(buffer, bufferSize, "%llum %llus", minutes, seconds);
   } else {
     snprintf(buffer, bufferSize, "%llus", seconds);
+  }
+}
+
+void formatPlaybackTime(uint32_t seconds, char* buffer, size_t bufferSize) {
+  snprintf(buffer, bufferSize, "%lu:%02lu",
+           static_cast<unsigned long>(seconds / 60),
+           static_cast<unsigned long>(seconds % 60));
+}
+
+void makeProgressBar(uint32_t completedSegments, char* buffer,
+                     size_t bufferSize) {
+  static const char completed[] = "\xE2\x96\x88";
+  static const char remaining[] = "\xE2\x96\x91";
+  size_t offset = 0;
+  for (uint8_t segment = 0; segment < 20; ++segment) {
+    const char* glyph = segment < completedSegments ? completed : remaining;
+    memcpy(buffer + offset, glyph, 3);
+    offset += 3;
+  }
+  if (offset < bufferSize) {
+    buffer[offset] = '\0';
   }
 }
 
@@ -132,7 +182,7 @@ void handleLandingPage(){
   file.close(); 
 }
 
-bool parsePositiveDecimal(const String& text, uint32_t maxValue,
+bool parseUnsignedDecimal(const String& text, uint32_t maxValue,
                           uint32_t& value) {
   if (text.length() == 0) {
     return false;
@@ -152,6 +202,14 @@ bool parsePositiveDecimal(const String& text, uint32_t maxValue,
     value = value * 10 + digitValue;
   }
 
+  return true;
+}
+
+bool parsePositiveDecimal(const String& text, uint32_t maxValue,
+                          uint32_t& value) {
+  if (!parseUnsignedDecimal(text, maxValue, value)) {
+    return false;
+  }
   return value > 0;
 }
 
@@ -339,6 +397,27 @@ enum class PlaybackRequestResult {
   PlayerUnavailable
 };
 
+void setNowPlayingSong(const CatalogSong& selection) {
+  nowPlayingSongId = selection.id;
+  nowPlayingSongTitle = selection.title;
+  nowPlayingAlbum = selection.album;
+  nowPlayingElapsedSeconds = 0;
+  nowPlayingDurationSeconds = 0;
+  hasNowPlayingSong = true;
+  hasNowPlayingDuration = false;
+  playbackState = PlaybackState::Unknown;
+}
+
+void clearNowPlayingSong() {
+  nowPlayingSongId = 0;
+  nowPlayingSongTitle = "";
+  nowPlayingAlbum = "";
+  nowPlayingElapsedSeconds = 0;
+  nowPlayingDurationSeconds = 0;
+  hasNowPlayingSong = false;
+  hasNowPlayingDuration = false;
+}
+
 PlaybackRequestResult playCatalogSong(uint32_t catalogId) {
   CatalogSong selection;
   switch (findCatalogSong(catalogId, selection)) {
@@ -366,10 +445,12 @@ PlaybackRequestResult playCatalogSong(uint32_t catalogId) {
                    selection.color3, selection.hasThirdColor,
                    selection.usedFallbackColors);
   logPlaySelection(selection);
+  setNowPlayingSong(selection);
   if (!dfPlayerDiagnostic.playMp3Folder(
           static_cast<uint16_t>(selection.id))) {
     return PlaybackRequestResult::PlayerUnavailable;
   }
+  playbackState = PlaybackState::Playing;
   hasRecentPlaybackRequest = true;
   lastPlaybackRequestId = catalogId;
   lastPlaybackRequestAtMs = now;
@@ -437,6 +518,7 @@ void handlePause(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
+  playbackState = PlaybackState::Paused;
   sendHttpResponse(200, "text/plain", "Paused");
 }
 
@@ -445,6 +527,7 @@ void handleResume(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
+  playbackState = PlaybackState::Playing;
   sendHttpResponse(200, "text/plain", "Resumed");
 }
 
@@ -453,6 +536,8 @@ void handleNext(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
+  clearNowPlayingSong();
+  playbackState = PlaybackState::Playing;
   sendHttpResponse(200, "text/plain", "Next");
 }
 
@@ -461,6 +546,8 @@ void handlePrevious(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
+  clearNowPlayingSong();
+  playbackState = PlaybackState::Playing;
   sendHttpResponse(200, "text/plain", "Previous");
 }
 
@@ -469,45 +556,127 @@ void handleStop(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
+  nowPlayingElapsedSeconds = 0;
+  playbackState = PlaybackState::Stopped;
   sendHttpResponse(200, "text/plain", "Stopped");
+}
+
+void handlePlaybackState() {
+  if (!hasNowPlayingSong) {
+    sendHttpResponse(409, "text/plain", "No catalog song is selected");
+    return;
+  }
+  if (!server.hasArg("elapsed_seconds") ||
+      !server.hasArg("duration_seconds")) {
+    sendHttpResponse(400, "text/plain", "Missing playback state fields");
+    return;
+  }
+
+  uint32_t elapsedSeconds = 0;
+  uint32_t durationSeconds = 0;
+  if (!parseUnsignedDecimal(server.arg("elapsed_seconds"), 86400,
+                            elapsedSeconds) ||
+      !parsePositiveDecimal(server.arg("duration_seconds"), 86400,
+                            durationSeconds)) {
+    sendHttpResponse(400, "text/plain", "Invalid playback state fields");
+    return;
+  }
+
+  nowPlayingElapsedSeconds = elapsedSeconds;
+  nowPlayingDurationSeconds = durationSeconds;
+  if (nowPlayingElapsedSeconds > nowPlayingDurationSeconds) {
+    nowPlayingElapsedSeconds = nowPlayingDurationSeconds;
+  }
+  hasNowPlayingDuration = true;
+  sendHttpResponse(204, "text/plain", "");
 }
 
 void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
   char uptimeFormatted[48];
-  char trackCount[8];
-  char response[448];
   formatUptime(uptimeSeconds, uptimeFormatted, sizeof(uptimeFormatted));
-  if (dfPlayerDiagnostic.hasTrackCount()) {
-    snprintf(trackCount, sizeof(trackCount), "%u",
-             static_cast<unsigned int>(dfPlayerDiagnostic.trackCount()));
-  } else {
-    snprintf(trackCount, sizeof(trackCount), "null");
-  }
-  snprintf(response, sizeof(response),
-           "{\"online\":true,\"device\":\"ESP32 Music Player\","
-           "\"ip\":\"%u.%u.%u.%u\",\"uptime\":%llu,"
-           "\"uptime_formatted\":\"%s\",\"wifi_rssi\":%d,"
-           "\"free_heap\":%lu,\"dfplayer_uart\":\"%s\","
-           "\"dfplayer_last_response_ms\":%lu,\"dfplayer_sd\":\"%s\","
-           "\"dfplayer_tracks\":%s,\"dfplayer_playback\":\"%s\"}",
+  StaticJsonDocument<1024> response;
+  response["online"] = true;
+  response["device"] = "ESP32 Music Player";
+  char ipAddress[16];
+  snprintf(ipAddress, sizeof(ipAddress), "%u.%u.%u.%u",
            static_cast<unsigned int>(ip[0]),
            static_cast<unsigned int>(ip[1]),
            static_cast<unsigned int>(ip[2]),
-           static_cast<unsigned int>(ip[3]),
-           static_cast<unsigned long long>(uptimeSeconds),
-           uptimeFormatted,
-           static_cast<int>(WiFi.RSSI()),
-           static_cast<unsigned long>(ESP.getFreeHeap()),
-           dfPlayerDiagnostic.connectionStatus(),
-           static_cast<unsigned long>(dfPlayerDiagnostic.lastResponseMs()),
-           dfPlayerDiagnostic.sdStatus(),
-           trackCount,
-           dfPlayerDiagnostic.playbackStatus());
+           static_cast<unsigned int>(ip[3]));
+  response["ip"] = ipAddress;
+  response["uptime"] = static_cast<unsigned long long>(uptimeSeconds);
+  response["uptime_formatted"] = uptimeFormatted;
+  response["wifi_rssi"] = WiFi.RSSI();
+  response["free_heap"] = static_cast<unsigned long>(ESP.getFreeHeap());
+  response["dfplayer_uart"] = dfPlayerDiagnostic.connectionStatus();
+  response["dfplayer_last_response_ms"] =
+      static_cast<unsigned long>(dfPlayerDiagnostic.lastResponseMs());
+  response["dfplayer_sd"] = dfPlayerDiagnostic.sdStatus();
+  if (dfPlayerDiagnostic.hasTrackCount()) {
+    response["dfplayer_tracks"] = dfPlayerDiagnostic.trackCount();
+  } else {
+    response["dfplayer_tracks"] = nullptr;
+  }
+  response["dfplayer_playback"] = dfPlayerDiagnostic.playbackStatus();
+
+  if (hasNowPlayingSong) {
+    response["song_id"] = nowPlayingSongId;
+    response["song_title"] = nowPlayingSongTitle;
+    response["album"] = nowPlayingAlbum;
+    response["elapsed_seconds"] = nowPlayingElapsedSeconds;
+    char elapsedDisplay[16];
+    char progressDisplay[40];
+    formatPlaybackTime(nowPlayingElapsedSeconds, elapsedDisplay,
+                       sizeof(elapsedDisplay));
+    if (hasNowPlayingDuration && nowPlayingDurationSeconds > 0) {
+      response["duration_seconds"] = nowPlayingDurationSeconds;
+      const uint32_t clampedElapsed =
+          nowPlayingElapsedSeconds > nowPlayingDurationSeconds
+              ? nowPlayingDurationSeconds
+              : nowPlayingElapsedSeconds;
+      const float progress =
+          static_cast<float>(clampedElapsed) * 100.0f /
+          nowPlayingDurationSeconds;
+      const float clampedProgress =
+          progress < 0.0f ? 0.0f : (progress > 100.0f ? 100.0f : progress);
+      response["progress_percent"] = clampedProgress;
+      char progressBar[61];
+      const uint32_t completedSegments =
+          static_cast<uint32_t>(clampedProgress * 20.0f / 100.0f);
+      makeProgressBar(completedSegments, progressBar, sizeof(progressBar));
+      response["progress_bar"] = progressBar;
+      char durationDisplay[16];
+      formatPlaybackTime(nowPlayingDurationSeconds, durationDisplay,
+                         sizeof(durationDisplay));
+      snprintf(progressDisplay, sizeof(progressDisplay), "%s / %s",
+               elapsedDisplay, durationDisplay);
+    } else {
+      response["duration_seconds"] = nullptr;
+      response["progress_percent"] = nullptr;
+      response["progress_bar"] = "—";
+      snprintf(progressDisplay, sizeof(progressDisplay), "%s / —",
+               elapsedDisplay);
+    }
+    response["progress_display"] = progressDisplay;
+  } else {
+    response["song_id"] = nullptr;
+    response["song_title"] = nullptr;
+    response["album"] = nullptr;
+    response["elapsed_seconds"] = nullptr;
+    response["duration_seconds"] = nullptr;
+    response["progress_percent"] = nullptr;
+    response["progress_bar"] = "—";
+    response["progress_display"] = "—";
+  }
+  response["playing"] = playbackState == PlaybackState::Playing;
+  response["playback_display"] = playbackDisplay();
 
   server.sendHeader("Cache-Control", "no-store");
-  sendHttpResponse(200, "application/json", response);
+  String body;
+  serializeJson(response, body);
+  sendHttpResponse(200, "application/json", body);
 }
 
 void setupRoutes(){
@@ -532,6 +701,7 @@ void setupRoutes(){
   server.on("/previous", handlePrevious);
   server.on("/stop", handleStop);
   server.on("/api/status", HTTP_GET, handleStatus);
+  server.on("/api/playback-state", HTTP_POST, handlePlaybackState);
   server.onNotFound(handleNotFound);
 }
 
@@ -584,22 +754,35 @@ void processSerialCommand() {
   } else if (strcmp(serialCommand, "pause") == 0) {
     if (!dfPlayerDiagnostic.pause()) {
       Serial.println("[DFPlayer] Cannot pause: player is not initialized.");
+    } else {
+      playbackState = PlaybackState::Paused;
     }
   } else if (strcmp(serialCommand, "resume") == 0) {
     if (!dfPlayerDiagnostic.resume()) {
       Serial.println("[DFPlayer] Cannot resume: player is not initialized.");
+    } else {
+      playbackState = PlaybackState::Playing;
     }
   } else if (strcmp(serialCommand, "stop") == 0) {
     if (!dfPlayerDiagnostic.stop()) {
       Serial.println("[DFPlayer] Cannot stop: player is not initialized.");
+    } else {
+      nowPlayingElapsedSeconds = 0;
+      playbackState = PlaybackState::Stopped;
     }
   } else if (strcmp(serialCommand, "next") == 0) {
     if (!dfPlayerDiagnostic.next()) {
       Serial.println("[DFPlayer] Cannot skip: player is not initialized.");
+    } else {
+      clearNowPlayingSong();
+      playbackState = PlaybackState::Playing;
     }
   } else if (strcmp(serialCommand, "prev") == 0) {
     if (!dfPlayerDiagnostic.previous()) {
       Serial.println("[DFPlayer] Cannot go back: player is not initialized.");
+    } else {
+      clearNowPlayingSong();
+      playbackState = PlaybackState::Playing;
     }
   } else if (serialCommandLength > 0) {
     Serial.print("[DFPlayer] Unknown command: ");

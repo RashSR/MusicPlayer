@@ -159,6 +159,7 @@ async function sendSelectionRequest(selectionId, url) {
             setPlaybackMessage(`Playback request was rejected (HTTP ${response.status}).`);
         } else {
             setPlaybackMessage('Playback command sent; SD-card file availability is not confirmed.');
+            reportPlaybackState();
         }
     } catch(error) {
         if(currentSelectionId === selectionId) {
@@ -214,6 +215,8 @@ async function requestPlaybackControl(path) {
         if(!response.ok) {
             console.error('[MusicPlayer] Playback control failed:',
                 path, response.status);
+        } else {
+            reportPlaybackState();
         }
     } catch(error) {
         console.error('[MusicPlayer] Playback control request failed:',
@@ -235,8 +238,36 @@ function startPlayback() {
             clearInterval(playbackTimer);
             playbackTimer = null;
             playNextTrack();
+        } else {
+            reportPlaybackState();
         }
     }, 1000);
+}
+
+async function reportPlaybackState() {
+    if(!currentTrack)
+        return;
+
+    const body = new URLSearchParams({
+        elapsed_seconds: String(Math.floor(currentTime)),
+        duration_seconds: String(Math.floor(songDuration)),
+    });
+    try {
+        const response = await fetch('/api/playback-state', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body,
+        });
+        if(!response.ok) {
+            console.error('[MusicPlayer] Playback state update failed:',
+                response.status);
+        }
+    } catch(error) {
+        console.error('[MusicPlayer] Playback state update request failed:',
+            error);
+    }
 }
 
 function updateProgressBar() {
