@@ -1,5 +1,4 @@
 let isShuffleEnabled = false;
-let isSeeking = false;
 let isPlaying = false;
 let currentTrack = null;
 let songsData = null;
@@ -335,59 +334,6 @@ function formatTime(seconds) {
     return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
-function initSeek(barSelector) {
-    const bar = document.querySelector(barSelector);
-    if(!bar)
-        return;
-
-    function handleSeek(e){
-        const rect = bar.getBoundingClientRect();
-        let clientX = e.clientX;
-        if (e.touches)
-            clientX = e.touches[0].clientX;
-
-        let x = clientX - rect.left;
-        x = Math.max(0, Math.min(x, rect.width));
-        const percent = x / rect.width;
-        currentTime = percent * songDuration;
-        updateProgressBar();
-    }
-
-    bar.addEventListener('click', handleSeek);
-
-    bar.addEventListener('mousedown', (e) => {
-        isSeeking = true;
-        handleSeek(e);
-    });
-
-    document.addEventListener('mousemove', (e) => {
-        if (!isSeeking)
-            return;
-
-        handleSeek(e);
-    });
-
-    document.addEventListener('mouseup', () => {
-        isSeeking = false;
-    });
-
-    bar.addEventListener('touchstart', (e) => {
-        isSeeking = true;
-        handleSeek(e);
-    });
-
-    document.addEventListener('touchmove', (e) => {
-        if (!isSeeking)
-            return;
-
-        handleSeek(e);
-    });
-
-    document.addEventListener('touchend', () => {
-        isSeeking = false;
-    });
-}
-
 function openOnlyThisAlbum(albumName) {
 
     const albums = document.querySelectorAll('.album');
@@ -420,8 +366,6 @@ function updateMiniPlayer(track, album) {
 
 window.addEventListener('DOMContentLoaded', () => {
     loadSongs();
-    initSeek('.progress');
-    initSeek('.mini-progress');
 });
 
 window.addEventListener('error', event => {
