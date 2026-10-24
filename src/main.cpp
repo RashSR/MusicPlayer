@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -19,6 +20,9 @@ uint32_t lastUptimeMillis = 0;
 uint64_t uptimeMilliseconds = 0;
 char serialCommand[32];
 size_t serialCommandLength = 0;
+uint32_t lastPlaybackRequestId = 0;
+uint32_t lastPlaybackRequestAtMs = 0;
+bool hasRecentPlaybackRequest = false;
 
 void updateUptime() {
   const uint32_t currentMillis = millis();
@@ -71,8 +75,12 @@ void logHttpResponse(int statusCode) {
   Serial.print(httpMethodName(server.method()));
   Serial.print(" ");
   Serial.print(server.uri());
-  if (server.uri() == "/play" && server.hasArg("id")) {
-    const String id = server.arg("id");
+  if ((server.uri() == "/play" ||
+       server.uri() == "/api/play-selection") &&
+      (server.hasArg("id") || server.hasArg("catalogId"))) {
+    const String id = server.hasArg("id")
+        ? server.arg("id")
+        : server.arg("catalogId");
     Serial.print("?id=");
     bool validIdForLog = id.length() > 0 && id.length() <= 4;
     for (size_t i = 0; validIdForLog && i < id.length(); ++i) {
@@ -147,20 +155,6 @@ bool parsePositiveDecimal(const String& text, uint32_t maxValue,
   return value > 0;
 }
 
-bool isValidMetadataText(const String& value, size_t maxLength) {
-  if (value.length() == 0 || value.length() > maxLength) {
-    return false;
-  }
-
-  for (size_t i = 0; i < value.length(); ++i) {
-    const uint8_t character = static_cast<uint8_t>(value[i]);
-    if (character < 0x20 || character == 0x7F) {
-      return false;
-    }
-  }
-  return true;
-}
-
 bool parseRgbColor(const String& text, uint32_t& color) {
   if (text.length() != 7 || text[0] != '#') {
     return false;
@@ -184,57 +178,117 @@ bool parseRgbColor(const String& text, uint32_t& color) {
   return true;
 }
 
-bool hasSelectionMetadata() {
-  return server.hasArg("album") || server.hasArg("title") ||
-         server.hasArg("catalogId") || server.hasArg("dfplayerTrack") ||
-         server.hasArg("color1") || server.hasArg("color2") ||
-         server.hasArg("color3");
-}
+struct CatalogSong {
+  String album;
+  String title;
+  uint32_t id = 0;
+  uint32_t color1 = 0x315B4C;
+  uint32_t color2 = 0xA9C7AE;
+  uint32_t color3 = 0;
+  bool hasThirdColor = false;
+  bool usedFallbackColors = true;
+};
 
-bool readSelectionMetadata(String& album, String& title,
-                           uint32_t& catalogId, uint32_t& dfplayerTrack,
-                           uint32_t& color1, uint32_t& color2,
-                           uint32_t& color3, bool& hasThirdColor,
-                           bool& usedFallbackColors, bool requireTrack) {
-  if (!server.hasArg("album") || !server.hasArg("title") ||
-      !server.hasArg("catalogId") ||
-      (requireTrack && !server.hasArg("dfplayerTrack")) ||
-      (!requireTrack && server.hasArg("dfplayerTrack"))) {
-    return false;
+enum class CatalogLookupResult {
+  Found,
+  NotFound,
+  DuplicateId,
+  Unavailable,
+  Invalid
+};
+
+CatalogLookupResult findCatalogSong(uint32_t requestedId,
+                                    CatalogSong& selection) {
+  File file = LittleFS.open("/songs.json", "r");
+  if (!file) {
+    Serial.println("[Catalog] Could not open /songs.json.");
+    return CatalogLookupResult::Unavailable;
   }
 
-  album = server.arg("album");
-  title = server.arg("title");
-  if (!isValidMetadataText(album, 80) ||
-      !isValidMetadataText(title, 120) ||
-      !parsePositiveDecimal(server.arg("catalogId"), 999999999, catalogId) ||
-      (requireTrack &&
-       !parsePositiveDecimal(server.arg("dfplayerTrack"), 9999,
-                             dfplayerTrack))) {
-    return false;
+  DynamicJsonDocument catalog(32768);
+  const DeserializationError error = deserializeJson(catalog, file);
+  file.close();
+  if (error) {
+    Serial.print("[Catalog] Could not parse /songs.json: ");
+    Serial.println(error.c_str());
+    return CatalogLookupResult::Invalid;
   }
 
-  const bool hasColor1 = server.hasArg("color1");
-  const bool hasColor2 = server.hasArg("color2");
-  hasThirdColor = server.hasArg("color3");
-  if (hasColor1 != hasColor2 || (hasThirdColor && !hasColor1)) {
-    return false;
+  const JsonArrayConst albums = catalog["albums"].as<JsonArrayConst>();
+  if (albums.isNull()) {
+    Serial.println("[Catalog] /songs.json has no albums array.");
+    return CatalogLookupResult::Invalid;
   }
-  if (hasColor1) {
-    usedFallbackColors = false;
-    if (!parseRgbColor(server.arg("color1"), color1) ||
-        !parseRgbColor(server.arg("color2"), color2)) {
-      return false;
+
+  uint8_t matches = 0;
+  for (JsonObjectConst album : albums) {
+    const char* albumName = album["name"].as<const char*>();
+    const JsonArrayConst tracks = album["tracks"].as<JsonArrayConst>();
+    if (albumName == nullptr || tracks.isNull()) {
+      Serial.println("[Catalog] Album entry is missing its name or tracks.");
+      return CatalogLookupResult::Invalid;
     }
-    return !hasThirdColor || parseRgbColor(server.arg("color3"), color3);
+
+    uint32_t colors[3] = {0x315B4C, 0xA9C7AE, 0};
+    bool hasThirdColor = false;
+    bool usedFallbackColors = true;
+    const JsonArrayConst ledColors =
+        album["ledColors"].as<JsonArrayConst>();
+    if (ledColors.size() == 2 || ledColors.size() == 3) {
+      uint32_t parsedColors[3] = {};
+      bool validColors = true;
+      for (size_t i = 0; i < ledColors.size(); ++i) {
+        const char* colorText = ledColors[i].as<const char*>();
+        if (colorText == nullptr ||
+            !parseRgbColor(String(colorText), parsedColors[i])) {
+          validColors = false;
+          break;
+        }
+      }
+      if (validColors) {
+        colors[0] = parsedColors[0];
+        colors[1] = parsedColors[1];
+        colors[2] = parsedColors[2];
+        hasThirdColor = ledColors.size() == 3;
+        usedFallbackColors = false;
+      }
+    }
+
+    for (JsonObjectConst song : tracks) {
+      const JsonVariantConst idValue = song["id"];
+      const char* title = song["title"].as<const char*>();
+      if (!idValue.is<uint32_t>() || title == nullptr || title[0] == '\0') {
+        Serial.println("[Catalog] Song entry has an invalid ID or title.");
+        return CatalogLookupResult::Invalid;
+      }
+      const uint32_t songId = idValue.as<uint32_t>();
+      if (songId == 0 || songId > 9999) {
+        Serial.println("[Catalog] Song ID is outside the range 1-9999.");
+        return CatalogLookupResult::Invalid;
+      }
+      if (songId != requestedId) {
+        continue;
+      }
+
+      ++matches;
+      selection.album = albumName;
+      selection.title = title;
+      selection.id = songId;
+      selection.color1 = colors[0];
+      selection.color2 = colors[1];
+      selection.color3 = colors[2];
+      selection.hasThirdColor = hasThirdColor;
+      selection.usedFallbackColors = usedFallbackColors;
+    }
   }
 
-  color1 = 0x315B4C;
-  color2 = 0xA9C7AE;
-  color3 = 0;
-  hasThirdColor = false;
-  usedFallbackColors = true;
-  return true;
+  if (matches > 1) {
+    Serial.print("[Catalog] Duplicate song ID: ");
+    Serial.println(requestedId);
+    return CatalogLookupResult::DuplicateId;
+  }
+  return matches == 1 ? CatalogLookupResult::Found
+                      : CatalogLookupResult::NotFound;
 }
 
 void printRgbColor(uint32_t color) {
@@ -265,119 +319,117 @@ void applyAlbumColors(const String& album, uint32_t color1, uint32_t color2,
                                   hasThirdColor);
 }
 
-void logPlaySelection(const String& album, const String& title,
-                      uint32_t catalogId, const String& dfplayerTrack) {
+void logPlaySelection(const CatalogSong& selection) {
   Serial.println("[MusicPlayer] Play requested");
   Serial.print("[MusicPlayer] Album: ");
-  Serial.println(album);
+  Serial.println(selection.album);
   Serial.print("[MusicPlayer] Song: ");
-  Serial.println(title);
+  Serial.println(selection.title);
   Serial.print("[MusicPlayer] Catalog ID: ");
-  Serial.println(catalogId);
-  Serial.print("[MusicPlayer] DFPlayer track: ");
-  Serial.println(dfplayerTrack);
+  Serial.println(selection.id);
 }
 
-void handlePlay(){
-  if (!server.hasArg("id")) {
-    sendHttpResponse(400, "text/plain", "Missing ID");
+enum class PlaybackRequestResult {
+  Sent,
+  DuplicateRequest,
+  NotFound,
+  DuplicateCatalogId,
+  CatalogUnavailable,
+  InvalidCatalog,
+  PlayerUnavailable
+};
+
+PlaybackRequestResult playCatalogSong(uint32_t catalogId) {
+  CatalogSong selection;
+  switch (findCatalogSong(catalogId, selection)) {
+    case CatalogLookupResult::NotFound:
+      return PlaybackRequestResult::NotFound;
+    case CatalogLookupResult::DuplicateId:
+      return PlaybackRequestResult::DuplicateCatalogId;
+    case CatalogLookupResult::Invalid:
+      return PlaybackRequestResult::InvalidCatalog;
+    case CatalogLookupResult::Unavailable:
+      return PlaybackRequestResult::CatalogUnavailable;
+    case CatalogLookupResult::Found:
+      break;
+  }
+
+  const uint32_t now = millis();
+  if (hasRecentPlaybackRequest && lastPlaybackRequestId == catalogId &&
+      now - lastPlaybackRequestAtMs < 500) {
+    Serial.print("[MusicPlayer] Ignoring duplicate play request for catalog ID ");
+    Serial.println(catalogId);
+    return PlaybackRequestResult::DuplicateRequest;
+  }
+
+  applyAlbumColors(selection.album, selection.color1, selection.color2,
+                   selection.color3, selection.hasThirdColor,
+                   selection.usedFallbackColors);
+  logPlaySelection(selection);
+  if (!dfPlayerDiagnostic.playMp3Folder(
+          static_cast<uint16_t>(selection.id))) {
+    return PlaybackRequestResult::PlayerUnavailable;
+  }
+  hasRecentPlaybackRequest = true;
+  lastPlaybackRequestId = catalogId;
+  lastPlaybackRequestAtMs = now;
+  return PlaybackRequestResult::Sent;
+}
+
+void sendPlaybackRequestResponse(PlaybackRequestResult result) {
+  switch (result) {
+    case PlaybackRequestResult::Sent:
+      sendHttpResponse(
+          200, "text/plain",
+          "Playback command sent; file availability and playback are not confirmed");
+      break;
+    case PlaybackRequestResult::DuplicateRequest:
+      sendHttpResponse(
+          200, "text/plain",
+          "Duplicate selection ignored; playback is not confirmed");
+      break;
+    case PlaybackRequestResult::NotFound:
+      sendHttpResponse(404, "text/plain", "Catalog song ID not found");
+      break;
+    case PlaybackRequestResult::DuplicateCatalogId:
+      sendHttpResponse(409, "text/plain", "Catalog song ID is ambiguous");
+      break;
+    case PlaybackRequestResult::CatalogUnavailable:
+    case PlaybackRequestResult::InvalidCatalog:
+      sendHttpResponse(500, "text/plain", "Could not read the song catalog");
+      break;
+    case PlaybackRequestResult::PlayerUnavailable:
+      sendHttpResponse(
+          503, "text/plain",
+          "DFPlayer is not initialized or the command could not be sent.");
+      break;
+  }
+}
+
+void handleCatalogPlay() {
+  const char* idArgument = server.hasArg("id")
+      ? "id"
+      : (server.hasArg("catalogId") ? "catalogId" : nullptr);
+  if (idArgument == nullptr) {
+    sendHttpResponse(400, "text/plain", "Missing catalog ID");
     return;
   }
 
-  const String trackId = server.arg("id");
-  uint16_t track = 0;
-  bool validTrackId = trackId.length() > 0;
-  for (size_t i = 0; i < trackId.length(); ++i) {
-    const char digit = trackId[i];
-    if (digit < '0' || digit > '9') {
-      validTrackId = false;
-      break;
-    }
-
-    const uint8_t value = static_cast<uint8_t>(digit - '0');
-    if (track > (9999 - value) / 10) {
-      validTrackId = false;
-      break;
-    }
-    track = static_cast<uint16_t>(track * 10 + value);
-  }
-
-  if (!validTrackId || track == 0) {
+  uint32_t catalogId = 0;
+  if (!parsePositiveDecimal(server.arg(idArgument), 9999, catalogId)) {
     sendHttpResponse(400, "text/plain",
                      "Invalid ID: expected a decimal integer from 1 to 9999");
     return;
   }
-
-  String album;
-  String title;
-  uint32_t catalogId = 0;
-  uint32_t mappedTrack = 0;
-  uint32_t color1 = 0;
-  uint32_t color2 = 0;
-  uint32_t color3 = 0;
-  bool hasThirdColor = false;
-  bool usedFallbackColors = false;
-  if (hasSelectionMetadata()) {
-    if (!readSelectionMetadata(album, title, catalogId, mappedTrack,
-                               color1, color2, color3, hasThirdColor,
-                               usedFallbackColors, true)) {
-      if (server.hasArg("color1") || server.hasArg("color2") ||
-          server.hasArg("color3")) {
-        Serial.println("[LED] Color values rejected.");
-      }
-      sendHttpResponse(400, "text/plain",
-                       "Invalid or incomplete song metadata");
-      return;
-    }
-    if (mappedTrack != track) {
-      sendHttpResponse(400, "text/plain", "DFPlayer track metadata mismatch");
-      return;
-    }
-    logPlaySelection(album, title, catalogId, String(track));
-    applyAlbumColors(album, color1, color2, color3, hasThirdColor,
-                     usedFallbackColors);
-  } else {
-    logPlaySelection("metadata unavailable", "metadata unavailable", 0,
-                     String(track));
-  }
-
-  Serial.print("PLAY TRACK: ");
-  Serial.println(track);
-  if (!dfPlayerDiagnostic.playMp3Track(track)) {
-    sendHttpResponse(
-        503, "text/plain",
-        "DFPlayer is not initialized or the command could not be sent.");
-    return;
-  }
-  sendHttpResponse(200, "text/plain", "DFPlayer play command sent");
+  sendPlaybackRequestResponse(playCatalogSong(catalogId));
 }
 
-void handlePlaySelection(){
-  String album;
-  String title;
-  uint32_t catalogId = 0;
-  uint32_t unusedTrack = 0;
-  uint32_t color1 = 0;
-  uint32_t color2 = 0;
-  uint32_t color3 = 0;
-  bool hasThirdColor = false;
-  bool usedFallbackColors = false;
-  if (!readSelectionMetadata(album, title, catalogId, unusedTrack,
-                             color1, color2, color3, hasThirdColor,
-                             usedFallbackColors, false)) {
-    if (server.hasArg("color1") || server.hasArg("color2") ||
-        server.hasArg("color3")) {
-      Serial.println("[LED] Color values rejected.");
-    }
-    sendHttpResponse(400, "text/plain", "Invalid or incomplete song metadata");
-    return;
-  }
+void handlePlay() {
+  handleCatalogPlay();
+}
 
-  logPlaySelection(album, title, catalogId, "not mapped");
-  applyAlbumColors(album, color1, color2, color3, hasThirdColor,
-                   usedFallbackColors);
-  sendHttpResponse(200, "text/plain",
-                   "Song selection logged; no play command sent");
+void handlePlaySelection() {
+  handleCatalogPlay();
 }
 
 void handlePause(){
@@ -488,7 +540,7 @@ void printSerialHelp() {
   Serial.println("  status  - print cached status and query the module");
   Serial.println("  init    - reinitialize the DFPlayer library");
   Serial.println("  volume  - set volume to 15 (range 0-30)");
-  Serial.println("  play    - play /mp3/0001.mp3");
+  Serial.println("  play <id> - play catalog ID, e.g. play 702");
   Serial.println("  pause   - pause playback");
   Serial.println("  resume  - resume playback");
   Serial.println("  stop    - stop playback");
@@ -509,8 +561,25 @@ void processSerialCommand() {
       Serial.println("[DFPlayer] Cannot set volume: player is not initialized.");
     }
   } else if (strcmp(serialCommand, "play") == 0) {
-    if (!dfPlayerDiagnostic.playMp3Track(1)) {
-      Serial.println("[DFPlayer] Cannot play: player is not initialized.");
+    Serial.println("[DFPlayer] Usage: play <catalog ID from 1 to 9999>");
+  } else if (strncmp(serialCommand, "play ", 5) == 0) {
+    uint32_t catalogId = 0;
+    if (!parsePositiveDecimal(String(serialCommand + 5), 9999, catalogId)) {
+      Serial.println("[DFPlayer] Invalid catalog ID; use play <ID> from 1 to 9999.");
+    } else {
+      const PlaybackRequestResult result = playCatalogSong(catalogId);
+      if (result == PlaybackRequestResult::DuplicateRequest) {
+        Serial.println("[DFPlayer] Duplicate playback request ignored.");
+      } else if (result == PlaybackRequestResult::NotFound) {
+        Serial.println("[DFPlayer] Catalog ID was not found in /songs.json.");
+      } else if (result == PlaybackRequestResult::DuplicateCatalogId) {
+        Serial.println("[DFPlayer] Catalog ID occurs more than once.");
+      } else if (result == PlaybackRequestResult::CatalogUnavailable ||
+                 result == PlaybackRequestResult::InvalidCatalog) {
+        Serial.println("[DFPlayer] Could not resolve ID from /songs.json.");
+      } else if (result == PlaybackRequestResult::PlayerUnavailable) {
+        Serial.println("[DFPlayer] Cannot play: player is not initialized.");
+      }
     }
   } else if (strcmp(serialCommand, "pause") == 0) {
     if (!dfPlayerDiagnostic.pause()) {

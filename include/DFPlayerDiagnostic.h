@@ -52,13 +52,18 @@ class DFPlayerDiagnostic {
     }
   }
 
-  bool playMp3Track(uint16_t track) {
-    if (!playerInitialized_ || track == 0 || track > 9999) {
+  bool playMp3Folder(uint16_t catalogId) {
+    if (!playerInitialized_ || catalogId == 0 || catalogId > 9999) {
       return false;
     }
-    player_.playMp3Folder(track);
+    char path[16];
+    snprintf(path, sizeof(path), "/mp3/%04u.mp3",
+             static_cast<unsigned int>(catalogId));
+    Serial.print("[DFPlayer] Playing ");
+    Serial.println(path);
+    player_.playMp3Folder(catalogId);
     Serial.print("[DFPlayer] playMp3Folder(");
-    Serial.print(track);
+    Serial.print(catalogId);
     Serial.println(") sent.");
     playbackStatus_ = "unknown";
     return true;

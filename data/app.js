@@ -126,44 +126,20 @@ function playTrackAtIndex(trackIndex) {
     startPlayback();
     console.log('[MusicPlayer] Selected song:', foundTrack.title);
     console.log('[MusicPlayer] Catalog ID:', foundTrack.id);
-    console.log('[MusicPlayer] DFPlayer track:', foundTrack.dfplayerTrack);
 
-    const hasMappedTrack = Number.isInteger(foundTrack.dfplayerTrack) &&
-        foundTrack.dfplayerTrack >= 1 && foundTrack.dfplayerTrack <= 9999;
-    const hasAlbumColors = Array.isArray(foundAlbum.ledColors) &&
-        (foundAlbum.ledColors.length === 2 || foundAlbum.ledColors.length === 3) &&
-        foundAlbum.ledColors.every(color => /^#[0-9A-Fa-f]{6}$/.test(color));
-    const metadata = `album=${encodeURIComponent(foundTrack.album)}` +
-        `&title=${encodeURIComponent(foundTrack.title)}` +
-        `&catalogId=${encodeURIComponent(foundTrack.id)}` +
-        (hasAlbumColors
-            ? `&color1=${encodeURIComponent(foundAlbum.ledColors[0])}` +
-                `&color2=${encodeURIComponent(foundAlbum.ledColors[1])}` +
-                (foundAlbum.ledColors.length === 3
-                    ? `&color3=${encodeURIComponent(foundAlbum.ledColors[2])}`
-                    : '')
-            : '');
-    const url = hasMappedTrack
-        ? `/play?id=${encodeURIComponent(foundTrack.dfplayerTrack)}` +
-            `&${metadata}&dfplayerTrack=${encodeURIComponent(foundTrack.dfplayerTrack)}`
-        : `/api/play-selection?${metadata}`;
-
-    if(!hasMappedTrack) {
-        console.log('[MusicPlayer] No DFPlayer track mapping for song:', foundTrack.id);
-        console.log('[MusicPlayer] DFPlayer playback request: not sent.');
-        setPlaybackMessage('This song is not available on the SD card yet.');
-    } else {
-        console.log('[MusicPlayer] DFPlayer playback request: sending.');
-    }
-    if(!hasAlbumColors) {
-        console.log('[LED] Album colors missing or invalid; ESP32 fallback will be used.');
+    if(!Number.isInteger(foundTrack.id) ||
+        foundTrack.id < 1 || foundTrack.id > 9999) {
+        setPlaybackMessage('This song has an invalid catalog ID.');
+        console.error('[MusicPlayer] Invalid catalog ID:', foundTrack.id);
+        return;
     }
 
-    console.log('[MusicPlayer] Selection metadata request: sending.');
-    sendSelectionRequest(selectionId, url, hasMappedTrack);
+    const url = `/api/play-selection?id=${encodeURIComponent(foundTrack.id)}`;
+    console.log('[MusicPlayer] Catalog selection request: sending.');
+    sendSelectionRequest(selectionId, url);
 }
 
-async function sendSelectionRequest(selectionId, url, hasMappedTrack) {
+async function sendSelectionRequest(selectionId, url) {
     console.log('[MusicPlayer] Requesting', url);
 
     try {
@@ -172,22 +148,22 @@ async function sendSelectionRequest(selectionId, url, hasMappedTrack) {
         if(currentSelectionId !== selectionId) {
             return;
         }
-        if(response.status === 400) {
-            setPlaybackMessage('The song selection was rejected (HTTP 400).');
-        } else if(hasMappedTrack && response.status === 503) {
+        if(response.status === 400 || response.status === 404) {
+            setPlaybackMessage('The catalog song ID was rejected or not found.');
+        } else if(response.status === 409) {
+            setPlaybackMessage('Duplicate playback request ignored.');
+        } else if(response.status === 503) {
             setPlaybackMessage('DFPlayer could not send the command (HTTP 503). Try again shortly.');
+        } else if(response.status === 500) {
+            setPlaybackMessage('The ESP32 could not read the song catalog.');
         } else if(!response.ok) {
-            setPlaybackMessage(`Song request was rejected (HTTP ${response.status}).`);
-        } else if(!hasMappedTrack) {
-            setPlaybackMessage('This song is not available on the SD card yet.');
+            setPlaybackMessage(`Playback request was rejected (HTTP ${response.status}).`);
         } else {
-            setPlaybackMessage('Command sent to DFPlayer; audio playback is not confirmed.');
+            setPlaybackMessage('Playback command sent; SD-card file availability is not confirmed.');
         }
     } catch(error) {
         if(currentSelectionId === selectionId) {
-            setPlaybackMessage(hasMappedTrack
-                ? 'Could not contact the ESP32; playback command was not confirmed.'
-                : 'Could not contact the ESP32; song selection was not logged.');
+            setPlaybackMessage('Could not contact the ESP32; playback command was not confirmed.');
         }
         console.error('[MusicPlayer] Selection request failed:', error);
     }
@@ -317,8 +293,7 @@ async function loadSongs() {
                 title: track.title,
                 album: album.name,
                 cover: album.cover,
-                ledColors: album.ledColors,
-                dfplayerTrack: track.dfplayerTrack
+                ledColors: album.ledColors
             });
             tracksHTML += createTrackHTML(track, index, catalogIndex);
         });

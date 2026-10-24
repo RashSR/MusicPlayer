@@ -5,7 +5,7 @@
       "cover": "taylor_swift.jpg",
       "ledColors": ["#44A6A0", "#8CCB85", "#F1E5C8"],
       "tracks": [
-        { "id": 101, "title": "Tim McGraw", "dfplayerTrack": 1 },
+        { "id": 101, "title": "Tim McGraw" },
         { "id": 102, "title": "Picture to Burn" },
         { "id": 103, "title": "Teardrops on My Guitar" },
         { "id": 104, "title": "A Place in This World" },
@@ -66,8 +66,8 @@
         { "id": 313, "title": "Last Kiss" },
         { "id": 314, "title": "Long Live" },
         { "id": 315, "title": "Ours", "isBonus": true },
-        { "id": 315, "title": "If This was a Movie", "isBonus": true },
-        { "id": 315, "title": "Superman", "isBonus": true }
+        { "id": 316, "title": "If This was a Movie", "isBonus": true },
+        { "id": 317, "title": "Superman", "isBonus": true }
       ]
     },
     {
