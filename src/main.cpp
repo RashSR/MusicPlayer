@@ -41,6 +41,26 @@ enum class PlaybackState : uint8_t {
 };
 PlaybackState playbackState = PlaybackState::Unknown;
 
+void updatePlaybackState(PlaybackState state) {
+  playbackState = state;
+  switch (state) {
+    case PlaybackState::Playing:
+      ledAlbumLighting.setPlaybackMode(
+          LedAlbumLighting::PlaybackMode::Playing);
+      break;
+    case PlaybackState::Paused:
+      ledAlbumLighting.setPlaybackMode(
+          LedAlbumLighting::PlaybackMode::Paused);
+      break;
+    case PlaybackState::Stopped:
+      ledAlbumLighting.setPlaybackMode(
+          LedAlbumLighting::PlaybackMode::Stopped);
+      break;
+    case PlaybackState::Unknown:
+      break;
+  }
+}
+
 const char* playbackDisplay() {
   switch (playbackState) {
     case PlaybackState::Playing:
@@ -422,7 +442,7 @@ void setNowPlayingSong(const CatalogSong& selection) {
   nowPlayingDurationSeconds = selection.durationSeconds;
   hasNowPlayingSong = true;
   hasNowPlayingDuration = selection.durationSeconds > 0;
-  playbackState = PlaybackState::Unknown;
+  updatePlaybackState(PlaybackState::Unknown);
 }
 
 void clearNowPlayingSong() {
@@ -465,9 +485,10 @@ PlaybackRequestResult playCatalogSong(uint32_t catalogId) {
   setNowPlayingSong(selection);
   if (!dfPlayerDiagnostic.playMp3Folder(
           static_cast<uint16_t>(selection.id))) {
+    updatePlaybackState(PlaybackState::Stopped);
     return PlaybackRequestResult::PlayerUnavailable;
   }
-  playbackState = PlaybackState::Playing;
+  updatePlaybackState(PlaybackState::Playing);
   hasRecentPlaybackRequest = true;
   lastPlaybackRequestId = catalogId;
   lastPlaybackRequestAtMs = now;
@@ -535,7 +556,7 @@ void handlePause(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
-  playbackState = PlaybackState::Paused;
+  updatePlaybackState(PlaybackState::Paused);
   sendHttpResponse(200, "text/plain", "Paused");
 }
 
@@ -544,7 +565,7 @@ void handleResume(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
-  playbackState = PlaybackState::Playing;
+  updatePlaybackState(PlaybackState::Playing);
   sendHttpResponse(200, "text/plain", "Resumed");
 }
 
@@ -554,7 +575,7 @@ void handleNext(){
     return;
   }
   clearNowPlayingSong();
-  playbackState = PlaybackState::Playing;
+  updatePlaybackState(PlaybackState::Playing);
   sendHttpResponse(200, "text/plain", "Next");
 }
 
@@ -564,7 +585,7 @@ void handlePrevious(){
     return;
   }
   clearNowPlayingSong();
-  playbackState = PlaybackState::Playing;
+  updatePlaybackState(PlaybackState::Playing);
   sendHttpResponse(200, "text/plain", "Previous");
 }
 
@@ -574,7 +595,7 @@ void handleStop(){
     return;
   }
   nowPlayingElapsedSeconds = 0;
-  playbackState = PlaybackState::Stopped;
+  updatePlaybackState(PlaybackState::Stopped);
   sendHttpResponse(200, "text/plain", "Stopped");
 }
 
@@ -880,34 +901,34 @@ void processSerialCommand() {
     if (!dfPlayerDiagnostic.pause()) {
       Serial.println("[DFPlayer] Cannot pause: player is not initialized.");
     } else {
-      playbackState = PlaybackState::Paused;
+      updatePlaybackState(PlaybackState::Paused);
     }
   } else if (strcmp(serialCommand, "resume") == 0) {
     if (!dfPlayerDiagnostic.resume()) {
       Serial.println("[DFPlayer] Cannot resume: player is not initialized.");
     } else {
-      playbackState = PlaybackState::Playing;
+      updatePlaybackState(PlaybackState::Playing);
     }
   } else if (strcmp(serialCommand, "stop") == 0) {
     if (!dfPlayerDiagnostic.stop()) {
       Serial.println("[DFPlayer] Cannot stop: player is not initialized.");
     } else {
       nowPlayingElapsedSeconds = 0;
-      playbackState = PlaybackState::Stopped;
+      updatePlaybackState(PlaybackState::Stopped);
     }
   } else if (strcmp(serialCommand, "next") == 0) {
     if (!dfPlayerDiagnostic.next()) {
       Serial.println("[DFPlayer] Cannot skip: player is not initialized.");
     } else {
       clearNowPlayingSong();
-      playbackState = PlaybackState::Playing;
+      updatePlaybackState(PlaybackState::Playing);
     }
   } else if (strcmp(serialCommand, "prev") == 0) {
     if (!dfPlayerDiagnostic.previous()) {
       Serial.println("[DFPlayer] Cannot go back: player is not initialized.");
     } else {
       clearNowPlayingSong();
-      playbackState = PlaybackState::Playing;
+      updatePlaybackState(PlaybackState::Playing);
     }
   } else if (serialCommandLength > 0) {
     Serial.print("[DFPlayer] Unknown command: ");

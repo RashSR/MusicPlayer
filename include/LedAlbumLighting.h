@@ -5,13 +5,20 @@
 
 class LedAlbumLighting {
  public:
+  enum class PlaybackMode : uint8_t {
+    Playing,
+    Paused,
+    Stopped
+  };
+
   void begin() {
     strip_.begin();
     strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
     Serial.println("[LED] Initialized 30 WS2812B LEDs on GPIO16");
-    phaseStartedAtMs_ = millis();
-    lastFrameAtMs_ = phaseStartedAtMs_;
-    update();
+    const uint32_t now = millis();
+    phaseStartedAtMs_ = now;
+    clockFrozenAtMs_ = now;
+    clearStrip();
   }
 
   void setBrightness(uint8_t brightnessPercent) {
@@ -21,8 +28,8 @@ class LedAlbumLighting {
 
     brightnessPercent_ = brightnessPercent;
     strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
-    if (enabled_) {
-      renderFrame(millis());
+    if (enabled_ && playbackMode_ != PlaybackMode::Stopped) {
+      renderFrame(animationTime(millis()));
     }
   }
 
@@ -37,8 +44,8 @@ class LedAlbumLighting {
     }
 
     saturationPercent_ = saturationPercent;
-    if (enabled_) {
-      renderFrame(millis());
+    if (enabled_ && playbackMode_ != PlaybackMode::Stopped) {
+      renderFrame(animationTime(millis()));
     }
   }
 
@@ -56,15 +63,12 @@ class LedAlbumLighting {
         paletteColorCount_ == newColorCount && sourceColors_[0] == color1 &&
         sourceColors_[1] == color2 &&
         (!hasThirdColor || sourceColors_[2] == color3)) {
+      resetAnimation(millis());
       logPalette(album, color1, color2, color3, hasThirdColor);
       return;
     }
 
     const uint32_t now = millis();
-    if (!enabled_) {
-      disabledAtMs_ = now;
-    }
-
     activeAlbum_ = album;
     paletteColorCount_ = newColorCount;
     sourceColors_[0] = color1;
@@ -74,12 +78,43 @@ class LedAlbumLighting {
     targetColors_[1] = color2;
     targetColors_[2] = hasThirdColor ? color3 : 0;
     hasAlbum_ = true;
-    phaseStartedAtMs_ = now;
-    if (enabled_) {
-      renderFrame(now);
-    }
+    resetAnimation(now);
 
     logPalette(activeAlbum_, color1, color2, color3, hasThirdColor);
+  }
+
+  void setPlaybackMode(PlaybackMode mode) {
+    if (playbackMode_ == mode) {
+      return;
+    }
+
+    const uint32_t now = millis();
+    const bool wasClockRunning = isClockRunning();
+    const PlaybackMode previousMode = playbackMode_;
+    if (mode == PlaybackMode::Playing &&
+        previousMode != PlaybackMode::Paused) {
+      phaseStartedAtMs_ = now;
+      clockFrozenAtMs_ = now;
+    } else if (mode == PlaybackMode::Paused &&
+               previousMode != PlaybackMode::Playing) {
+      phaseStartedAtMs_ = now;
+      clockFrozenAtMs_ = now;
+    }
+
+    playbackMode_ = mode;
+    updateClock(now, wasClockRunning);
+
+    if (!enabled_) {
+      return;
+    }
+    if (mode == PlaybackMode::Stopped) {
+      clearStrip();
+    } else if (mode == PlaybackMode::Paused) {
+      renderFrame(clockFrozenAtMs_);
+    } else {
+      lastFrameAtMs_ = now - frameIntervalMs_;
+      renderFrame(now);
+    }
   }
 
   void setEnabled(bool enabled) {
@@ -88,25 +123,26 @@ class LedAlbumLighting {
     }
 
     const uint32_t now = millis();
+    const bool wasClockRunning = isClockRunning();
     if (!enabled) {
       enabled_ = false;
-      disabledAtMs_ = now;
-      for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
-        strip_.setPixelColor(pixel, 0);
-      }
-      strip_.show();
+      updateClock(now, wasClockRunning);
+      clearStrip();
       return;
     }
 
-    const uint32_t disabledDuration = now - disabledAtMs_;
-    phaseStartedAtMs_ += disabledDuration;
     enabled_ = true;
-    lastFrameAtMs_ = now - frameIntervalMs_;
-    update();
+    updateClock(now, wasClockRunning);
+    if (playbackMode_ == PlaybackMode::Paused) {
+      renderFrame(clockFrozenAtMs_);
+    } else if (playbackMode_ == PlaybackMode::Playing) {
+      lastFrameAtMs_ = now - frameIntervalMs_;
+      renderFrame(now);
+    }
   }
 
   void update() {
-    if (!enabled_) {
+    if (!enabled_ || playbackMode_ != PlaybackMode::Playing) {
       return;
     }
 
@@ -132,13 +168,48 @@ class LedAlbumLighting {
   uint32_t targetColors_[3] = {defaultColor1_, defaultColor2_, 0};
   uint32_t phaseStartedAtMs_ = 0;
   uint32_t lastFrameAtMs_ = 0;
-  uint32_t disabledAtMs_ = 0;
+  uint32_t clockFrozenAtMs_ = 0;
   uint8_t paletteColorCount_ = 2;
   uint8_t brightnessPercent_ = defaultBrightnessPercent_;
   uint8_t saturationPercent_ = defaultSaturationPercent_;
   String activeAlbum_;
   bool hasAlbum_ = false;
   bool enabled_ = true;
+  PlaybackMode playbackMode_ = PlaybackMode::Stopped;
+
+  bool isClockRunning() const {
+    return enabled_ && playbackMode_ == PlaybackMode::Playing;
+  }
+
+  uint32_t animationTime(uint32_t now) const {
+    return isClockRunning() ? now : clockFrozenAtMs_;
+  }
+
+  void updateClock(uint32_t now, bool wasClockRunning) {
+    const bool clockRunning = isClockRunning();
+    if (wasClockRunning && !clockRunning) {
+      clockFrozenAtMs_ = now;
+    } else if (!wasClockRunning && clockRunning) {
+      phaseStartedAtMs_ += now - clockFrozenAtMs_;
+    }
+  }
+
+  void resetAnimation(uint32_t now) {
+    phaseStartedAtMs_ = now;
+    if (!isClockRunning()) {
+      clockFrozenAtMs_ = now;
+    }
+    if (enabled_ && playbackMode_ != PlaybackMode::Stopped) {
+      renderFrame(animationTime(now));
+    }
+  }
+
+  void clearStrip() {
+    for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
+      strip_.setPixelColor(pixel, 0);
+    }
+    strip_.show();
+  }
 
   static uint8_t brightnessToNeoPixelValue(uint8_t brightnessPercent) {
     return static_cast<uint8_t>(
@@ -146,7 +217,7 @@ class LedAlbumLighting {
   }
 
   void renderFrame(uint32_t now) {
-    lastFrameAtMs_ = now;
+    lastFrameAtMs_ = millis();
     for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
       strip_.setPixelColor(
           pixel, saturateColor(colorForPixel(pixel, now)));
