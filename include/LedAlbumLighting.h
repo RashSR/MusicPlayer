@@ -32,6 +32,9 @@ class LedAlbumLighting {
     const uint32_t currentColors[3] = {
         colorForPixel(0, now), colorForPixel(1, now), colorForPixel(2, now)};
     const bool transitioningFromAlbum = hasAlbum_;
+    if (!enabled_) {
+      disabledAtMs_ = now;
+    }
 
     activeAlbum_ = album;
     paletteColorCount_ = newColorCount;
@@ -57,7 +60,37 @@ class LedAlbumLighting {
     logPalette(activeAlbum_, color1, color2, color3, hasThirdColor);
   }
 
+  void setEnabled(bool enabled) {
+    if (enabled_ == enabled) {
+      return;
+    }
+
+    const uint32_t now = millis();
+    if (!enabled) {
+      enabled_ = false;
+      disabledAtMs_ = now;
+      for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
+        strip_.setPixelColor(pixel, 0);
+      }
+      strip_.show();
+      return;
+    }
+
+    const uint32_t disabledDuration = now - disabledAtMs_;
+    phaseStartedAtMs_ += disabledDuration;
+    if (colorTransitionActive_) {
+      colorTransitionStartedAtMs_ += disabledDuration;
+    }
+    enabled_ = true;
+    lastFrameAtMs_ = now - frameIntervalMs_;
+    update();
+  }
+
   void update() {
+    if (!enabled_) {
+      return;
+    }
+
     const uint32_t now = millis();
     if (now - lastFrameAtMs_ < frameIntervalMs_) {
       return;
@@ -96,10 +129,12 @@ class LedAlbumLighting {
   uint32_t phaseStartedAtMs_ = 0;
   uint32_t colorTransitionStartedAtMs_ = 0;
   uint32_t lastFrameAtMs_ = 0;
+  uint32_t disabledAtMs_ = 0;
   uint8_t paletteColorCount_ = 2;
   String activeAlbum_;
   bool hasAlbum_ = false;
   bool colorTransitionActive_ = false;
+  bool enabled_ = true;
 
   static uint8_t channel(uint32_t color, uint8_t shift) {
     return static_cast<uint8_t>(color >> shift);

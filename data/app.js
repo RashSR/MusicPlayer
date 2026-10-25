@@ -9,6 +9,11 @@ let songDuration = 180;
 let currentSelectionId = 0;
 let volumeUpdateTimer = null;
 let volumeRequestSequence = 0;
+let ledsEnabled = null;
+let ledRequestInProgress = false;
+let ledRequestSequence = 0;
+let statusSyncInProgress = false;
+let statusSyncPending = false;
 
 const domElements = {
     currentSong: document.getElementById('currentSong'),
@@ -19,6 +24,8 @@ const domElements = {
     timeDisplay: document.querySelector('.time-display'),
     volumeSlider: document.getElementById('volumeSlider'),
     volumeValue: document.getElementById('volumeValue'),
+    ledToggle: document.getElementById('ledToggle'),
+    ledStatusMessage: document.getElementById('ledStatusMessage'),
 };
 
 function updateVolumeDisplay(volume) {
@@ -60,12 +67,38 @@ function scheduleVolumeUpdate(immediate = false) {
     }
 }
 
-async function syncVolumeFromStatus() {
+function updateLedDisplay(enabled) {
+    ledsEnabled = enabled;
+    domElements.ledToggle.disabled = false;
+    domElements.ledToggle.setAttribute('aria-pressed', String(enabled));
+    domElements.ledToggle.classList.toggle('leds-off', !enabled);
+    domElements.ledToggle.textContent = enabled ? '💡 LEDs On' : '💡 LEDs Off';
+    domElements.ledStatusMessage.textContent = '';
+}
+
+function markLedStateUnavailable() {
+    ledsEnabled = null;
+    domElements.ledToggle.disabled = true;
+    domElements.ledToggle.setAttribute('aria-pressed', 'mixed');
+    domElements.ledToggle.classList.remove('leds-off');
+    domElements.ledToggle.textContent = '💡 LEDs unavailable';
+}
+
+async function syncDeviceStatus() {
+    if(statusSyncInProgress) {
+        statusSyncPending = true;
+        return;
+    }
+    statusSyncInProgress = true;
     const sequence = volumeRequestSequence;
+    const ledSequence = ledRequestSequence;
     try {
         const response = await fetch('/api/status');
         if(!response.ok) {
             console.error('[MusicPlayer] Status request failed:', response.status);
+            if(!ledRequestInProgress && ledSequence === ledRequestSequence) {
+                markLedStateUnavailable();
+            }
             return;
         }
         const status = await response.json();
@@ -75,8 +108,70 @@ async function syncVolumeFromStatus() {
             status.volume >= 0 && status.volume <= 30) {
             updateVolumeDisplay(status.volume);
         }
+        if(!ledRequestInProgress && ledSequence === ledRequestSequence) {
+            if(typeof status.leds_enabled === 'boolean') {
+                updateLedDisplay(status.leds_enabled);
+            } else {
+                console.error('[MusicPlayer] Status response has no valid LED state.');
+                markLedStateUnavailable();
+            }
+        }
     } catch(error) {
         console.error('[MusicPlayer] Status request failed:', error);
+        if(!ledRequestInProgress && ledSequence === ledRequestSequence) {
+            markLedStateUnavailable();
+        }
+    } finally {
+        statusSyncInProgress = false;
+        if(statusSyncPending) {
+            statusSyncPending = false;
+            syncDeviceStatus();
+        }
+    }
+}
+
+async function toggleLeds() {
+    if(ledsEnabled === null || ledRequestInProgress) {
+        return;
+    }
+
+    const requestedState = !ledsEnabled;
+    ++ledRequestSequence;
+    ledRequestInProgress = true;
+    domElements.ledToggle.disabled = true;
+    domElements.ledStatusMessage.textContent = 'Updating...';
+    try {
+        const response = await fetch('/api/leds', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                enabled: String(requestedState),
+            }),
+        });
+        if(!response.ok) {
+            console.error('[MusicPlayer] LED update failed:', response.status);
+            throw new Error(`LED update failed (HTTP ${response.status})`);
+        }
+
+        const status = await response.json();
+        if(typeof status.leds_enabled !== 'boolean') {
+            throw new Error('LED update response has no valid state');
+        }
+        updateLedDisplay(status.leds_enabled);
+    } catch(error) {
+        console.error('[MusicPlayer] LED update request failed:', error);
+        markLedStateUnavailable();
+        domElements.ledStatusMessage.textContent =
+            'Could not confirm LED state; checking device...';
+    } finally {
+        ledRequestInProgress = false;
+        if(ledsEnabled === null) {
+            await syncDeviceStatus();
+        } else {
+            domElements.ledToggle.disabled = false;
+        }
     }
 }
 
@@ -462,8 +557,9 @@ window.addEventListener('DOMContentLoaded', () => {
     loadSongs();
     domElements.volumeSlider.addEventListener('input', () => scheduleVolumeUpdate());
     domElements.volumeSlider.addEventListener('change', () => scheduleVolumeUpdate(true));
-    syncVolumeFromStatus();
-    setInterval(syncVolumeFromStatus, 5000);
+    domElements.ledToggle.addEventListener('click', toggleLeds);
+    syncDeviceStatus();
+    setInterval(syncDeviceStatus, 5000);
 });
 
 window.addEventListener('error', event => {

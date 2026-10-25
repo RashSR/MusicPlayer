@@ -15,6 +15,7 @@ WebServer server(80);
 bool wasConnectedToWiFi = false;
 bool wifiConfigured = false;
 bool webServerStarted = false;
+bool ledsEnabled = true;
 unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 10000;
 uint32_t lastUptimeMillis = 0;
@@ -616,6 +617,30 @@ void handleSetVolume() {
   sendHttpResponse(200, "application/json", body);
 }
 
+void handleSetLeds() {
+  server.sendHeader("Cache-Control", "no-store");
+  if (!server.hasArg("enabled")) {
+    sendHttpResponse(400, "text/plain", "Missing enabled state");
+    return;
+  }
+
+  const String requestedState = server.arg("enabled");
+  if (requestedState != "true" && requestedState != "false") {
+    sendHttpResponse(400, "text/plain",
+                     "Invalid enabled state: expected true or false");
+    return;
+  }
+
+  ledsEnabled = requestedState == "true";
+  ledAlbumLighting.setEnabled(ledsEnabled);
+
+  StaticJsonDocument<32> response;
+  response["leds_enabled"] = ledsEnabled;
+  String body;
+  serializeJson(response, body);
+  sendHttpResponse(200, "application/json", body);
+}
+
 void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
@@ -636,6 +661,7 @@ void handleStatus(){
   response["wifi_rssi"] = WiFi.RSSI();
   response["free_heap"] = static_cast<unsigned long>(ESP.getFreeHeap());
   response["dfplayer_uart"] = dfPlayerDiagnostic.connectionStatus();
+  response["leds_enabled"] = ledsEnabled;
   if (dfPlayerDiagnostic.volume() >= 0) {
     response["volume"] = dfPlayerDiagnostic.volume();
   } else {
@@ -731,6 +757,7 @@ void setupRoutes(){
   server.on("/previous", handlePrevious);
   server.on("/stop", handleStop);
   server.on("/api/volume", HTTP_GET, handleSetVolume);
+  server.on("/api/leds", HTTP_POST, handleSetLeds);
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/playback-state", HTTP_POST, handlePlaybackState);
   server.onNotFound(handleNotFound);

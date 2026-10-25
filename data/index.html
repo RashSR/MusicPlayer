@@ -14,6 +14,7 @@
       <p>Wi-Fi controlled MP3 player</p>
     </div>
 
+    <main>
     <div class="now-playing">
       <div class="album-card">
         <img
@@ -46,6 +47,12 @@
             <label for="volumeSlider">Volume <span id="volumeValue">8</span>/30</label>
             <input id="volumeSlider" type="range" min="0" max="30" value="8">
           </div>
+          <button id="ledToggle" class="led-toggle" type="button"
+                  aria-pressed="false" disabled>
+            💡 LEDs: Loading...
+          </button>
+          <span id="ledStatusMessage" class="led-status-message"
+                aria-live="polite"></span>
         </div>
       </div>
     </div>
@@ -56,9 +63,11 @@
       <div id="albumsContainer"></div>
     </div>
 
-    <div class="footer">
-      ESP32 Wi-Fi Music Player Prototype
-    </div>
+    </main>
+
+    <footer class="footer">
+      Taylor Swift Music Player · Powered by ESP32-S3
+    </footer>
   </div>
   <script src="app.js"></script>
 
