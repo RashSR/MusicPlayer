@@ -241,6 +241,7 @@ struct CatalogSong {
   String album;
   String title;
   uint32_t id = 0;
+  uint32_t durationSeconds = 0;
   uint32_t color1 = 0x315B4C;
   uint32_t color2 = 0xA9C7AE;
   uint32_t color3 = 0;
@@ -316,9 +317,22 @@ CatalogLookupResult findCatalogSong(uint32_t requestedId,
     for (JsonObjectConst song : tracks) {
       const JsonVariantConst idValue = song["id"];
       const char* title = song["title"].as<const char*>();
+      const JsonVariantConst durationValue = song["duration"];
       if (!idValue.is<uint32_t>() || title == nullptr || title[0] == '\0') {
         Serial.println("[Catalog] Song entry has an invalid ID or title.");
         return CatalogLookupResult::Invalid;
+      }
+      uint32_t durationSeconds = 0;
+      if (!durationValue.isNull()) {
+        if (!durationValue.is<uint32_t>()) {
+          Serial.println("[Catalog] Song duration must be a positive integer or null.");
+          return CatalogLookupResult::Invalid;
+        }
+        durationSeconds = durationValue.as<uint32_t>();
+        if (durationSeconds == 0 || durationSeconds > 86400) {
+          Serial.println("[Catalog] Song duration is outside the range 1-86400 seconds.");
+          return CatalogLookupResult::Invalid;
+        }
       }
       const uint32_t songId = idValue.as<uint32_t>();
       if (songId == 0 || songId > 9999) {
@@ -333,6 +347,7 @@ CatalogLookupResult findCatalogSong(uint32_t requestedId,
       selection.album = albumName;
       selection.title = title;
       selection.id = songId;
+      selection.durationSeconds = durationSeconds;
       selection.color1 = colors[0];
       selection.color2 = colors[1];
       selection.color3 = colors[2];
@@ -403,9 +418,9 @@ void setNowPlayingSong(const CatalogSong& selection) {
   nowPlayingSongTitle = selection.title;
   nowPlayingAlbum = selection.album;
   nowPlayingElapsedSeconds = 0;
-  nowPlayingDurationSeconds = 0;
+  nowPlayingDurationSeconds = selection.durationSeconds;
   hasNowPlayingSong = true;
-  hasNowPlayingDuration = false;
+  hasNowPlayingDuration = selection.durationSeconds > 0;
   playbackState = PlaybackState::Unknown;
 }
 
@@ -567,28 +582,23 @@ void handlePlaybackState() {
     sendHttpResponse(409, "text/plain", "No catalog song is selected");
     return;
   }
-  if (!server.hasArg("elapsed_seconds") ||
-      !server.hasArg("duration_seconds")) {
-    sendHttpResponse(400, "text/plain", "Missing playback state fields");
+  if (!server.hasArg("elapsed_seconds")) {
+    sendHttpResponse(400, "text/plain", "Missing elapsed playback state");
     return;
   }
 
   uint32_t elapsedSeconds = 0;
-  uint32_t durationSeconds = 0;
   if (!parseUnsignedDecimal(server.arg("elapsed_seconds"), 86400,
-                            elapsedSeconds) ||
-      !parsePositiveDecimal(server.arg("duration_seconds"), 86400,
-                            durationSeconds)) {
-    sendHttpResponse(400, "text/plain", "Invalid playback state fields");
+                            elapsedSeconds)) {
+    sendHttpResponse(400, "text/plain", "Invalid elapsed playback state");
     return;
   }
 
   nowPlayingElapsedSeconds = elapsedSeconds;
-  nowPlayingDurationSeconds = durationSeconds;
-  if (nowPlayingElapsedSeconds > nowPlayingDurationSeconds) {
+  if (hasNowPlayingDuration &&
+      nowPlayingElapsedSeconds > nowPlayingDurationSeconds) {
     nowPlayingElapsedSeconds = nowPlayingDurationSeconds;
   }
-  hasNowPlayingDuration = true;
   sendHttpResponse(204, "text/plain", "");
 }
 
@@ -641,6 +651,32 @@ void handleSetLeds() {
   sendHttpResponse(200, "application/json", body);
 }
 
+void handleSetLedBrightness() {
+  server.sendHeader("Cache-Control", "no-store");
+  if (!server.hasArg("brightness")) {
+    sendHttpResponse(400, "text/plain", "Missing LED brightness");
+    return;
+  }
+
+  uint32_t requestedBrightness = 0;
+  if (!parseUnsignedDecimal(server.arg("brightness"), 100,
+                            requestedBrightness)) {
+    sendHttpResponse(
+        400, "text/plain",
+        "Invalid LED brightness: expected a decimal integer from 0 to 100");
+    return;
+  }
+
+  ledAlbumLighting.setBrightness(
+      static_cast<uint8_t>(requestedBrightness));
+
+  StaticJsonDocument<48> response;
+  response["led_brightness"] = ledAlbumLighting.brightness();
+  String body;
+  serializeJson(response, body);
+  sendHttpResponse(200, "application/json", body);
+}
+
 void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
@@ -662,6 +698,7 @@ void handleStatus(){
   response["free_heap"] = static_cast<unsigned long>(ESP.getFreeHeap());
   response["dfplayer_uart"] = dfPlayerDiagnostic.connectionStatus();
   response["leds_enabled"] = ledsEnabled;
+  response["led_brightness"] = ledAlbumLighting.brightness();
   if (dfPlayerDiagnostic.volume() >= 0) {
     response["volume"] = dfPlayerDiagnostic.volume();
   } else {
@@ -712,7 +749,7 @@ void handleStatus(){
       response["duration_seconds"] = nullptr;
       response["progress_percent"] = nullptr;
       response["progress_bar"] = "—";
-      snprintf(progressDisplay, sizeof(progressDisplay), "%s / —",
+      snprintf(progressDisplay, sizeof(progressDisplay), "%s / --:--",
                elapsedDisplay);
     }
     response["progress_display"] = progressDisplay;
@@ -758,6 +795,7 @@ void setupRoutes(){
   server.on("/stop", handleStop);
   server.on("/api/volume", HTTP_GET, handleSetVolume);
   server.on("/api/leds", HTTP_POST, handleSetLeds);
+  server.on("/api/leds/brightness", HTTP_POST, handleSetLedBrightness);
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/playback-state", HTTP_POST, handlePlaybackState);
   server.onNotFound(handleNotFound);

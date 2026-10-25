@@ -30,7 +30,7 @@
 
           <div id="progressContainer" class="hidden">
             <div class="time-row">
-              <div class="time-display">00:00 / 00:00</div>
+              <div class="time-display">00:00 / --:--</div>
             </div>
             <div class="progress">
               <div class="progress-fill"></div>
@@ -52,6 +52,15 @@
             💡 LEDs: Loading...
           </button>
           <span id="ledStatusMessage" class="led-status-message"
+                aria-live="polite"></span>
+          <div class="led-brightness-control">
+            <label for="ledBrightnessSlider">
+              LED brightness <span id="ledBrightnessValue">50</span>%
+            </label>
+            <input id="ledBrightnessSlider" type="range" min="0" max="100"
+                   value="50" disabled>
+          </div>
+          <span id="ledBrightnessMessage" class="led-status-message"
                 aria-live="polite"></span>
         </div>
       </div>
@@ -78,7 +87,7 @@
         <div id="miniTitle">No song</div>
         <div id="miniAlbum">—</div>
       </div>
-      <div class="mini-time">00:00 / 00:00</div>
+      <div class="mini-time">00:00 / --:--</div>
     </div>
     <div class="mini-progress">
       <div class="mini-progress-fill"></div>

@@ -5,7 +5,7 @@ let songsData = null;
 let allTracks = [];
 let playbackTimer = null;
 let currentTime = 0;
-let songDuration = 180;
+let songDuration = null;
 let currentSelectionId = 0;
 let volumeUpdateTimer = null;
 let volumeRequestSequence = 0;
@@ -14,6 +14,10 @@ let ledRequestInProgress = false;
 let ledRequestSequence = 0;
 let statusSyncInProgress = false;
 let statusSyncPending = false;
+let ledBrightnessUpdateTimer = null;
+let ledBrightnessRequestSequence = 0;
+let ledBrightnessRequestInProgress = false;
+let pendingLedBrightness = null;
 
 const domElements = {
     currentSong: document.getElementById('currentSong'),
@@ -26,6 +30,9 @@ const domElements = {
     volumeValue: document.getElementById('volumeValue'),
     ledToggle: document.getElementById('ledToggle'),
     ledStatusMessage: document.getElementById('ledStatusMessage'),
+    ledBrightnessSlider: document.getElementById('ledBrightnessSlider'),
+    ledBrightnessValue: document.getElementById('ledBrightnessValue'),
+    ledBrightnessMessage: document.getElementById('ledBrightnessMessage'),
 };
 
 function updateVolumeDisplay(volume) {
@@ -82,6 +89,79 @@ function markLedStateUnavailable() {
     domElements.ledToggle.setAttribute('aria-pressed', 'mixed');
     domElements.ledToggle.classList.remove('leds-off');
     domElements.ledToggle.textContent = '💡 LEDs unavailable';
+    domElements.ledBrightnessSlider.disabled = true;
+    domElements.ledBrightnessValue.textContent = '--';
+    domElements.ledBrightnessMessage.textContent = 'LED brightness unavailable';
+}
+
+function updateLedBrightnessDisplay(brightness) {
+    domElements.ledBrightnessSlider.value = String(brightness);
+    domElements.ledBrightnessSlider.disabled = false;
+    domElements.ledBrightnessValue.textContent = String(brightness);
+    domElements.ledBrightnessMessage.textContent = '';
+}
+
+function scheduleLedBrightnessUpdate(immediate = false) {
+    const brightness = Number(domElements.ledBrightnessSlider.value);
+    const sequence = ++ledBrightnessRequestSequence;
+    domElements.ledBrightnessValue.textContent = String(brightness);
+    clearTimeout(ledBrightnessUpdateTimer);
+    if(immediate) {
+        ledBrightnessUpdateTimer = null;
+        sendLedBrightnessUpdate(brightness, sequence);
+    } else {
+        ledBrightnessUpdateTimer = setTimeout(() => {
+            ledBrightnessUpdateTimer = null;
+            sendLedBrightnessUpdate(brightness, sequence);
+        }, 150);
+    }
+}
+
+async function sendLedBrightnessUpdate(brightness, sequence) {
+    if(ledBrightnessRequestInProgress) {
+        pendingLedBrightness = {brightness, sequence};
+        return;
+    }
+
+    ledBrightnessRequestInProgress = true;
+    try {
+        const response = await fetch('/api/leds/brightness', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                brightness: String(brightness),
+            }),
+        });
+        if(!response.ok) {
+            console.error('[MusicPlayer] LED brightness update failed:',
+                response.status);
+            throw new Error(`LED brightness update failed (HTTP ${response.status})`);
+        }
+
+        const status = await response.json();
+        if(!Number.isInteger(status.led_brightness) ||
+            status.led_brightness < 0 || status.led_brightness > 100) {
+            throw new Error('LED brightness response has no valid value');
+        }
+        if(sequence === ledBrightnessRequestSequence) {
+            updateLedBrightnessDisplay(status.led_brightness);
+        }
+    } catch(error) {
+        console.error('[MusicPlayer] LED brightness request failed:', error);
+        domElements.ledBrightnessMessage.textContent =
+            'Could not confirm brightness; checking device...';
+    } finally {
+        ledBrightnessRequestInProgress = false;
+        if(pendingLedBrightness !== null) {
+            const pending = pendingLedBrightness;
+            pendingLedBrightness = null;
+            sendLedBrightnessUpdate(pending.brightness, pending.sequence);
+        } else if(ledBrightnessUpdateTimer === null) {
+            await syncDeviceStatus();
+        }
+    }
 }
 
 async function syncDeviceStatus() {
@@ -92,6 +172,7 @@ async function syncDeviceStatus() {
     statusSyncInProgress = true;
     const sequence = volumeRequestSequence;
     const ledSequence = ledRequestSequence;
+    const brightnessSequence = ledBrightnessRequestSequence;
     try {
         const response = await fetch('/api/status');
         if(!response.ok) {
@@ -113,6 +194,17 @@ async function syncDeviceStatus() {
                 updateLedDisplay(status.leds_enabled);
             } else {
                 console.error('[MusicPlayer] Status response has no valid LED state.');
+                markLedStateUnavailable();
+            }
+        }
+        if(!ledBrightnessRequestInProgress &&
+            ledBrightnessUpdateTimer === null &&
+            brightnessSequence === ledBrightnessRequestSequence) {
+            if(Number.isInteger(status.led_brightness) &&
+                status.led_brightness >= 0 && status.led_brightness <= 100) {
+                updateLedBrightnessDisplay(status.led_brightness);
+            } else {
+                console.error('[MusicPlayer] Status response has no valid LED brightness.');
                 markLedStateUnavailable();
             }
         }
@@ -264,6 +356,7 @@ function playTrackAtIndex(trackIndex) {
 
     const selectionId = ++currentSelectionId;
     currentTrack = foundTrack;
+    songDuration = foundTrack.duration;
     openOnlyThisAlbum(foundAlbum.name);
     document.querySelectorAll('.track').forEach(track => {
         track.classList.remove('active');
@@ -392,7 +485,7 @@ function startPlayback() {
     playbackTimer = setInterval(() => {
         currentTime++;
         updateProgressBar();
-        if(currentTime >= songDuration) {
+        if(songDuration !== null && currentTime >= songDuration) {
             clearInterval(playbackTimer);
             playbackTimer = null;
             playNextTrack();
@@ -408,7 +501,6 @@ async function reportPlaybackState() {
 
     const body = new URLSearchParams({
         elapsed_seconds: String(Math.floor(currentTime)),
-        duration_seconds: String(Math.floor(songDuration)),
     });
     try {
         const response = await fetch('/api/playback-state', {
@@ -433,7 +525,9 @@ function updateProgressBar() {
     const timeDisplay = domElements.timeDisplay;
     const miniBar = document.querySelector('.mini-progress-fill');
     const miniTime = document.querySelector('.mini-time'); 
-    const progress = (currentTime / songDuration) * 100;
+    const progress = songDuration === null
+        ? 0
+        : Math.min(currentTime / songDuration * 100, 100);
 
     if(bar) 
         bar.style.width = `${progress}%`;
@@ -441,8 +535,10 @@ function updateProgressBar() {
     if(miniBar)
         miniBar.style.width = `${progress}%`;
 
-    const timeText =
-        `${formatTime(currentTime)} / ${formatTime(songDuration)}`;
+    const durationText = songDuration === null
+        ? '--:--'
+        : formatTime(songDuration);
+    const timeText = `${formatTime(currentTime)} / ${durationText}`;
 
     if(timeDisplay)
         timeDisplay.textContent = timeText;
@@ -479,6 +575,9 @@ async function loadSongs() {
             allTracks.push({
                 id: track.id,
                 title: track.title,
+                duration: Number.isInteger(track.duration) && track.duration > 0
+                    ? track.duration
+                    : null,
                 album: album.name,
                 cover: album.cover,
                 ledColors: album.ledColors
@@ -558,6 +657,10 @@ window.addEventListener('DOMContentLoaded', () => {
     domElements.volumeSlider.addEventListener('input', () => scheduleVolumeUpdate());
     domElements.volumeSlider.addEventListener('change', () => scheduleVolumeUpdate(true));
     domElements.ledToggle.addEventListener('click', toggleLeds);
+    domElements.ledBrightnessSlider.addEventListener(
+        'input', () => scheduleLedBrightnessUpdate());
+    domElements.ledBrightnessSlider.addEventListener(
+        'change', () => scheduleLedBrightnessUpdate(true));
     syncDeviceStatus();
     setInterval(syncDeviceStatus, 5000);
 });

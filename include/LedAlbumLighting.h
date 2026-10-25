@@ -7,11 +7,27 @@ class LedAlbumLighting {
  public:
   void begin() {
     strip_.begin();
-    strip_.setBrightness(brightness_);
+    strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
     Serial.println("[LED] Initialized 30 WS2812B LEDs on GPIO16");
     phaseStartedAtMs_ = millis();
     lastFrameAtMs_ = phaseStartedAtMs_;
     update();
+  }
+
+  void setBrightness(uint8_t brightnessPercent) {
+    if (brightnessPercent > 100 || brightnessPercent_ == brightnessPercent) {
+      return;
+    }
+
+    brightnessPercent_ = brightnessPercent;
+    strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
+    if (enabled_) {
+      renderFrame(millis());
+    }
+  }
+
+  uint8_t brightness() const {
+    return brightnessPercent_;
   }
 
   void setAlbumColors(const String& album, uint32_t color1, uint32_t color2,
@@ -95,23 +111,13 @@ class LedAlbumLighting {
     if (now - lastFrameAtMs_ < frameIntervalMs_) {
       return;
     }
-    lastFrameAtMs_ = now;
-
-    for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
-      strip_.setPixelColor(pixel, colorForPixel(pixel, now));
-    }
-    strip_.show();
-
-    if (colorTransitionActive_ &&
-        now - colorTransitionStartedAtMs_ >= LED_COLOR_SWAP_DURATION_MS) {
-      colorTransitionActive_ = false;
-    }
+    renderFrame(now);
   }
 
  private:
   static constexpr uint8_t ledCount_ = 30;
   static constexpr uint8_t dataPin_ = 16;
-  static constexpr uint8_t brightness_ = 20;
+  static constexpr uint8_t defaultBrightnessPercent_ = 50;
   static constexpr uint32_t frameIntervalMs_ = 33;
   static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 500;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
@@ -127,10 +133,29 @@ class LedAlbumLighting {
   uint32_t lastFrameAtMs_ = 0;
   uint32_t disabledAtMs_ = 0;
   uint8_t paletteColorCount_ = 2;
+  uint8_t brightnessPercent_ = defaultBrightnessPercent_;
   String activeAlbum_;
   bool hasAlbum_ = false;
   bool colorTransitionActive_ = false;
   bool enabled_ = true;
+
+  static uint8_t brightnessToNeoPixelValue(uint8_t brightnessPercent) {
+    return static_cast<uint8_t>(
+        (static_cast<uint16_t>(brightnessPercent) * 255 + 50) / 100);
+  }
+
+  void renderFrame(uint32_t now) {
+    lastFrameAtMs_ = now;
+    for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
+      strip_.setPixelColor(pixel, colorForPixel(pixel, now));
+    }
+    strip_.show();
+
+    if (colorTransitionActive_ &&
+        now - colorTransitionStartedAtMs_ >= LED_COLOR_SWAP_DURATION_MS) {
+      colorTransitionActive_ = false;
+    }
+  }
 
   static uint8_t channel(uint32_t color, uint8_t shift) {
     return static_cast<uint8_t>(color >> shift);
