@@ -12,14 +12,42 @@ class LedAlbumLighting {
     Stopped
   };
 
+  enum class StartupState : uint8_t {
+    Booting,
+    WifiConnecting,
+    WifiConnectedHold,
+    WifiConnectedFade,
+    WifiFailed,
+    Ready
+  };
+
   void begin() {
     strip_.begin();
-    strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
-    Serial.println("[LED] Initialized 30 WS2812B LEDs on GPIO16");
+    Serial.print("[LED] Initialized ");
+    Serial.print(ledCount_);
+    Serial.println(" WS2812B LEDs on GPIO16");
     const uint32_t now = millis();
     phaseStartedAtMs_ = now;
     clockFrozenAtMs_ = now;
-    renderFrame(now);
+    startupStartedAtMs_ = now;
+    startupStateStartedAtMs_ = now;
+    startupState_ = StartupState::Booting;
+    applyStripBrightness(255);
+    renderStartupFrame(now);
+  }
+
+  void setWifiConnected(bool connected) {
+    wifiConnected_ = connected;
+    if (!connected || wifiEverConnected_) {
+      return;
+    }
+
+    wifiEverConnected_ = true;
+    if (startupState_ == StartupState::WifiConnecting ||
+        startupState_ == StartupState::WifiFailed ||
+        startupState_ == StartupState::Ready) {
+      startConnectedAnimation(millis());
+    }
   }
 
   void setBrightness(uint8_t brightnessPercent) {
@@ -28,9 +56,13 @@ class LedAlbumLighting {
     }
 
     brightnessPercent_ = brightnessPercent;
-    strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
-    if (enabled_) {
+    if (startupState_ == StartupState::Ready) {
+      applyStripBrightness(brightnessToNeoPixelValue(brightnessPercent_));
+    }
+    if (enabled_ && startupState_ == StartupState::Ready) {
       renderFrame(animationTime(millis()));
+    } else if (enabled_) {
+      renderStartupFrame(millis());
     }
   }
 
@@ -45,8 +77,10 @@ class LedAlbumLighting {
     }
 
     saturationPercent_ = saturationPercent;
-    if (enabled_) {
+    if (enabled_ && startupState_ == StartupState::Ready) {
       renderFrame(animationTime(millis()));
+    } else if (enabled_) {
+      renderStartupFrame(millis());
     }
   }
 
@@ -100,6 +134,16 @@ class LedAlbumLighting {
                previousMode != PlaybackMode::Playing) {
       phaseStartedAtMs_ = now;
       clockFrozenAtMs_ = now;
+    } else if (startupState_ != StartupState::Ready &&
+               (mode == PlaybackMode::Paused ||
+                mode == PlaybackMode::Stopped)) {
+      phaseStartedAtMs_ += now - clockFrozenAtMs_;
+      clockFrozenAtMs_ = now;
+    } else if (startupState_ != StartupState::Ready &&
+               mode == PlaybackMode::Playing &&
+               previousMode == PlaybackMode::Paused) {
+      phaseStartedAtMs_ += now - clockFrozenAtMs_;
+      clockFrozenAtMs_ = now;
     }
 
     playbackMode_ = mode;
@@ -107,9 +151,15 @@ class LedAlbumLighting {
     brightnessPercent_ = mode == PlaybackMode::Playing
         ? playingBrightnessPercent_
         : idleBrightnessPercent_;
-    strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
+    if (startupState_ == StartupState::Ready) {
+      applyStripBrightness(brightnessToNeoPixelValue(brightnessPercent_));
+    }
 
     if (!enabled_) {
+      return;
+    }
+    if (startupState_ != StartupState::Ready) {
+      renderStartupFrame(now);
       return;
     }
     if (mode == PlaybackMode::Playing) {
@@ -136,6 +186,10 @@ class LedAlbumLighting {
 
     enabled_ = true;
     updateClock(now, wasClockRunning);
+    if (startupState_ != StartupState::Ready) {
+      renderStartupFrame(now);
+      return;
+    }
     if (playbackMode_ == PlaybackMode::Paused) {
       renderFrame(clockFrozenAtMs_);
     } else if (playbackMode_ == PlaybackMode::Playing) {
@@ -147,6 +201,10 @@ class LedAlbumLighting {
   }
 
   void update() {
+    if (startupState_ != StartupState::Ready) {
+      updateStartup(millis());
+      return;
+    }
     if (!enabled_ || playbackMode_ != PlaybackMode::Playing) {
       return;
     }
@@ -167,6 +225,14 @@ class LedAlbumLighting {
   static constexpr uint32_t frameIntervalMs_ = 33;
   static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 1000;
   static constexpr uint32_t LED_TRANSITION_DURATION_MS = 300;
+  static constexpr uint32_t BOOTING_DURATION_MS = 300;
+  static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 15000;
+  static constexpr uint32_t WIFI_FAILURE_DISPLAY_MS = 2500;
+  static constexpr uint32_t WIFI_CONNECTED_HOLD_MS = 800;
+  static constexpr uint32_t WIFI_CONNECTED_FADE_MS = 400;
+  static constexpr uint32_t STARTUP_FRAME_INTERVAL_MS = 33;
+  static constexpr uint32_t startupPurple_ = 0x8D42D6;
+  static constexpr uint32_t startupAmber_ = 0xFF8C00;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
   static constexpr uint32_t defaultColor2_ = 0xA9C7AE;
 
@@ -176,16 +242,27 @@ class LedAlbumLighting {
   uint32_t phaseStartedAtMs_ = 0;
   uint32_t lastFrameAtMs_ = 0;
   uint32_t clockFrozenAtMs_ = 0;
+  uint32_t startupStartedAtMs_ = 0;
+  uint32_t startupStateStartedAtMs_ = 0;
+  uint32_t lastStartupFrameAtMs_ = 0;
+  uint32_t renderedColors_[ledCount_] = {};
   uint8_t paletteColorCount_ = 2;
   uint8_t brightnessPercent_ = idleBrightnessPercent_;
   uint8_t saturationPercent_ = defaultSaturationPercent_;
+  uint8_t appliedStripBrightness_ = 0;
   String activeAlbum_;
   bool hasAlbum_ = false;
   bool enabled_ = true;
+  bool wifiConnected_ = false;
+  bool wifiEverConnected_ = false;
+  bool frameDirty_ = true;
+  bool frameCacheValid_ = false;
   PlaybackMode playbackMode_ = PlaybackMode::Idle;
+  StartupState startupState_ = StartupState::Booting;
 
   bool isClockRunning() const {
-    return enabled_ && playbackMode_ == PlaybackMode::Playing;
+    return enabled_ && startupState_ == StartupState::Ready &&
+           playbackMode_ == PlaybackMode::Playing;
   }
 
   uint32_t animationTime(uint32_t now) const {
@@ -213,9 +290,9 @@ class LedAlbumLighting {
 
   void clearStrip() {
     for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
-      strip_.setPixelColor(pixel, 0);
+      setPixel(pixel, 0);
     }
-    strip_.show();
+    showIfDirty();
   }
 
   static uint8_t brightnessToNeoPixelValue(uint8_t brightnessPercent) {
@@ -223,13 +300,207 @@ class LedAlbumLighting {
         (static_cast<uint16_t>(brightnessPercent) * 255 + 50) / 100);
   }
 
+  void applyStripBrightness(uint8_t brightness) {
+    if (appliedStripBrightness_ == brightness) {
+      return;
+    }
+    strip_.setBrightness(brightness);
+    appliedStripBrightness_ = brightness;
+    frameDirty_ = true;
+    frameCacheValid_ = false;
+  }
+
+  void setPixel(uint16_t pixel, uint32_t color) {
+    if (frameCacheValid_ && renderedColors_[pixel] == color) {
+      return;
+    }
+    strip_.setPixelColor(pixel, color);
+    renderedColors_[pixel] = color;
+    frameDirty_ = true;
+  }
+
+  void showIfDirty() {
+    if (frameDirty_) {
+      strip_.show();
+      frameDirty_ = false;
+      frameCacheValid_ = true;
+    }
+  }
+
   void renderFrame(uint32_t now) {
     lastFrameAtMs_ = millis();
     for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
-      strip_.setPixelColor(
-          pixel, saturateColor(colorForPixel(pixel, now)));
+      setPixel(pixel, saturateColor(colorForPixel(pixel, now)));
     }
-    strip_.show();
+    showIfDirty();
+  }
+
+  static uint32_t scaleColor(uint32_t color, uint8_t percent) {
+    const uint8_t red = static_cast<uint8_t>(
+        (static_cast<uint16_t>(channel(color, 16)) * percent + 50) / 100);
+    const uint8_t green = static_cast<uint8_t>(
+        (static_cast<uint16_t>(channel(color, 8)) * percent + 50) / 100);
+    const uint8_t blue = static_cast<uint8_t>(
+        (static_cast<uint16_t>(channel(color, 0)) * percent + 50) / 100);
+    return (static_cast<uint32_t>(red) << 16) |
+           (static_cast<uint32_t>(green) << 8) | blue;
+  }
+
+  static uint8_t pulseBrightness(uint32_t elapsed, uint32_t periodMs,
+                                 uint8_t minimum, uint8_t maximum) {
+    const float phase =
+        static_cast<float>(elapsed % periodMs) * 6.2831853f / periodMs;
+    const float amount = (sinf(phase) + 1.0f) * 0.5f;
+    return static_cast<uint8_t>(
+        minimum + (maximum - minimum) * amount + 0.5f);
+  }
+
+  void renderStartupFrame(uint32_t now) {
+    if (!enabled_) {
+      return;
+    }
+
+    if (now - lastStartupFrameAtMs_ < STARTUP_FRAME_INTERVAL_MS &&
+        startupState_ != StartupState::Booting &&
+        startupState_ != StartupState::WifiConnectedHold) {
+      return;
+    }
+    lastStartupFrameAtMs_ = now;
+    const uint32_t stateElapsed = now - startupStateStartedAtMs_;
+    for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
+      uint32_t color = 0;
+      uint8_t brightness = 0;
+      switch (startupState_) {
+        case StartupState::Booting:
+          if (pixel % 5 == 0) {
+            color = startupPurple_;
+            brightness = 15;
+          }
+          break;
+        case StartupState::WifiConnecting:
+          if (pixel % 5 == 0) {
+            color = startupPurple_;
+            brightness = pulseBrightness(stateElapsed, 2400, 10, 16);
+          }
+          break;
+        case StartupState::WifiConnectedHold:
+          color = startupPurple_;
+          brightness = 35;
+          break;
+        case StartupState::WifiConnectedFade: {
+          const float progress =
+              static_cast<float>(stateElapsed) / WIFI_CONNECTED_FADE_MS;
+          const float easedProgress =
+              progress * progress * (3.0f - 2.0f * progress);
+          const uint32_t normalColor =
+              saturateColor(colorForPixel(pixel, animationTime(now)));
+          const uint32_t mixedColor =
+              interpolateColor(startupPurple_, normalColor, easedProgress);
+          const float mixedBrightness =
+              35.0f + (brightnessPercent_ - 35.0f) * easedProgress;
+          color = scaleColor(
+              mixedColor, static_cast<uint8_t>(mixedBrightness + 0.5f));
+          break;
+        }
+        case StartupState::WifiFailed:
+          if (pixel % 5 == 0) {
+            color = startupAmber_;
+            brightness = pulseBrightness(stateElapsed, 2200, 5, 16);
+          }
+          break;
+        case StartupState::Ready:
+          return;
+      }
+      if (startupState_ != StartupState::WifiConnectedFade) {
+        color = scaleColor(color, brightness);
+      }
+      setPixel(pixel, color);
+    }
+    showIfDirty();
+  }
+
+  void startConnectedAnimation(uint32_t now) {
+    const bool wasClockRunning = isClockRunning();
+    startupState_ = StartupState::WifiConnectedHold;
+    updateClock(now, wasClockRunning);
+    startupStateStartedAtMs_ = now;
+    lastStartupFrameAtMs_ = now - STARTUP_FRAME_INTERVAL_MS;
+    applyStripBrightness(255);
+    renderStartupFrame(now);
+  }
+
+  void enterReady(uint32_t now) {
+    const bool wasClockRunning = isClockRunning();
+    startupState_ = StartupState::Ready;
+    updateClock(now, wasClockRunning);
+    applyStripBrightness(brightnessToNeoPixelValue(brightnessPercent_));
+    if (enabled_) {
+      if (playbackMode_ == PlaybackMode::Playing) {
+        lastFrameAtMs_ = now - frameIntervalMs_;
+        renderFrame(now);
+      } else {
+        renderFrame(animationTime(now));
+      }
+    }
+  }
+
+  void updateStartup(uint32_t now) {
+    if (startupState_ == StartupState::Booting) {
+      if (now - startupStartedAtMs_ >= BOOTING_DURATION_MS) {
+        startupState_ = StartupState::WifiConnecting;
+        startupStateStartedAtMs_ = now;
+        lastStartupFrameAtMs_ = now - STARTUP_FRAME_INTERVAL_MS;
+        renderStartupFrame(now);
+      }
+      return;
+    }
+
+    if (startupState_ == StartupState::WifiConnecting) {
+      if (wifiConnected_) {
+        wifiEverConnected_ = true;
+        startConnectedAnimation(now);
+        return;
+      }
+      if (now - startupStartedAtMs_ >= WIFI_CONNECT_TIMEOUT_MS) {
+        startupState_ = StartupState::WifiFailed;
+        startupStateStartedAtMs_ = now;
+        lastStartupFrameAtMs_ = now - STARTUP_FRAME_INTERVAL_MS;
+        renderStartupFrame(now);
+        return;
+      }
+      renderStartupFrame(now);
+      return;
+    }
+
+    if (startupState_ == StartupState::WifiConnectedHold) {
+      if (now - startupStateStartedAtMs_ >= WIFI_CONNECTED_HOLD_MS) {
+        startupState_ = StartupState::WifiConnectedFade;
+        startupStateStartedAtMs_ = now;
+        lastStartupFrameAtMs_ = now - STARTUP_FRAME_INTERVAL_MS;
+        renderStartupFrame(now);
+      }
+      return;
+    }
+
+    if (startupState_ == StartupState::WifiConnectedFade) {
+      if (now - startupStateStartedAtMs_ >= WIFI_CONNECTED_FADE_MS) {
+        enterReady(now);
+      } else {
+        renderStartupFrame(now);
+      }
+      return;
+    }
+
+    if (startupState_ == StartupState::WifiFailed) {
+      if (wifiConnected_ && wifiEverConnected_) {
+        startConnectedAnimation(now);
+      } else if (now - startupStateStartedAtMs_ >=
+                 WIFI_FAILURE_DISPLAY_MS) {
+        enterReady(now);
+      } else {
+        renderStartupFrame(now);
+      }
+    }
   }
 
   static uint8_t channel(uint32_t color, uint8_t shift) {

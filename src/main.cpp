@@ -1003,6 +1003,7 @@ void loop() {
   }
 
   const bool connectedToWiFi = WiFi.status() == WL_CONNECTED;
+  ledAlbumLighting.setWifiConnected(connectedToWiFi);
   if (connectedToWiFi && !wasConnectedToWiFi) {
     Serial.println("Connected to Wi-Fi!");
     Serial.print("IP: ");
