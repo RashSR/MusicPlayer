@@ -3,306 +3,1270 @@
     {
       "name": "Taylor Swift",
       "cover": "taylor_swift.jpg",
-      "ledColors": ["#238F85", "#65B86B", "#D4AD60"],
+      "ledColors": [
+        "#238F85",
+        "#65B86B",
+        "#D4AD60"
+      ],
       "tracks": [
-        { "id": 101, "title": "Tim McGraw", "duration": 235 },
-        { "id": 102, "title": "Picture to Burn", "duration": 175 },
-        { "id": 103, "title": "Teardrops on My Guitar", "duration": 205 },
-        { "id": 104, "title": "A Place in This World", "duration": 202 },
-        { "id": 105, "title": "Cold as You", "duration": 241 },
-        { "id": 106, "title": "The Outside", "duration": 209 },
-        { "id": 107, "title": "Tied Together with a Smile", "duration": 251 },
-        { "id": 108, "title": "Stay Beautiful", "duration": 239 },
-        { "id": 109, "title": "Should’ve Said No", "duration": 244 },
-        { "id": 110, "title": "Mary’s Song (Oh My My My)", "duration": 215 },
-        { "id": 111, "title": "Our Song", "duration": 203 },
-        { "id": 112, "title": "I’m Only Me When I’m with You", "duration": 216, "isBonus": true },
-        { "id": 113, "title": "Invisible", "duration": 206, "isBonus": true },
-        { "id": 114, "title": "A Perfectly Good Heart", "duration": 222, "isBonus": true }
+        {
+          "id": 101,
+          "title": "Tim McGraw",
+          "duration": 235
+        },
+        {
+          "id": 102,
+          "title": "Picture to Burn",
+          "duration": 175
+        },
+        {
+          "id": 103,
+          "title": "Teardrops on My Guitar",
+          "duration": 205
+        },
+        {
+          "id": 104,
+          "title": "A Place in This World",
+          "duration": 202
+        },
+        {
+          "id": 105,
+          "title": "Cold as You",
+          "duration": 241
+        },
+        {
+          "id": 106,
+          "title": "The Outside",
+          "duration": 209
+        },
+        {
+          "id": 107,
+          "title": "Tied Together with a Smile",
+          "duration": 251
+        },
+        {
+          "id": 108,
+          "title": "Stay Beautiful",
+          "duration": 239
+        },
+        {
+          "id": 109,
+          "title": "Should’ve Said No",
+          "duration": 244
+        },
+        {
+          "id": 110,
+          "title": "Mary’s Song (Oh My My My)",
+          "duration": 215
+        },
+        {
+          "id": 111,
+          "title": "Our Song",
+          "duration": 203
+        },
+        {
+          "id": 112,
+          "title": "I’m Only Me When I’m with You",
+          "duration": 216,
+          "isBonus": true
+        },
+        {
+          "id": 113,
+          "title": "Invisible",
+          "duration": 206,
+          "isBonus": true
+        },
+        {
+          "id": 114,
+          "title": "A Perfectly Good Heart",
+          "duration": 222,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "Fearless",
       "cover": "fearless.jpg",
-      "ledColors": ["#FFB900", "#D66A12", "#8C390F"],
+      "ledColors": [
+        "#FFB900",
+        "#D66A12",
+        "#8C390F"
+      ],
       "tracks": [
-        { "id": 201, "title": "Fearless", "duration": 243 },
-        { "id": 202, "title": "Fifteen", "duration": 295 },
-        { "id": 203, "title": "Love Story", "duration": 235 },
-        { "id": 204, "title": "Hey Stephen", "duration": 256 },
-        { "id": 205, "title": "White Horse", "duration": 235 },
-        { "id": 206, "title": "You Belong with Me", "duration": 232 },
-        { "id": 207, "title": "Breathe", "duration": 265 },
-        { "id": 208, "title": "Tell Me Why", "duration": 202 },
-        { "id": 209, "title": "You’re Not Sorry", "duration": 263 },
-        { "id": 210, "title": "The Way I Loved You", "duration": 245 },
-        { "id": 211, "title": "Forever & Always", "duration": 226 },
-        { "id": 212, "title": "The Best Day", "duration": 246 },
-        { "id": 213, "title": "Change", "duration": 280 },
-        { "id": 214, "title": "Jump Then Fall", "duration": null, "isBonus": true },
-        { "id": 215, "title": "Untouchable", "duration": null, "isBonus": true },
-        { "id": 216, "title": "Come in with the Rain", "duration": null, "isBonus": true },
-        { "id": 217, "title": "Superstar", "duration": null, "isBonus": true },
-        { "id": 218, "title": "The Other Side of the Door", "duration": null, "isBonus": true }
+        {
+          "id": 201,
+          "title": "Fearless",
+          "duration": 243
+        },
+        {
+          "id": 202,
+          "title": "Fifteen",
+          "duration": 295
+        },
+        {
+          "id": 203,
+          "title": "Love Story",
+          "duration": 235
+        },
+        {
+          "id": 204,
+          "title": "Hey Stephen",
+          "duration": 256
+        },
+        {
+          "id": 205,
+          "title": "White Horse",
+          "duration": 235
+        },
+        {
+          "id": 206,
+          "title": "You Belong with Me",
+          "duration": 232
+        },
+        {
+          "id": 207,
+          "title": "Breathe",
+          "duration": 265
+        },
+        {
+          "id": 208,
+          "title": "Tell Me Why",
+          "duration": 202
+        },
+        {
+          "id": 209,
+          "title": "You’re Not Sorry",
+          "duration": 263
+        },
+        {
+          "id": 210,
+          "title": "The Way I Loved You",
+          "duration": 245
+        },
+        {
+          "id": 211,
+          "title": "Forever & Always",
+          "duration": 226
+        },
+        {
+          "id": 212,
+          "title": "The Best Day",
+          "duration": 246
+        },
+        {
+          "id": 213,
+          "title": "Change",
+          "duration": 280
+        },
+        {
+          "id": 214,
+          "title": "Jump Then Fall",
+          "duration": 238,
+          "isBonus": true
+        },
+        {
+          "id": 215,
+          "title": "Untouchable",
+          "duration": 315,
+          "isBonus": true
+        },
+        {
+          "id": 216,
+          "title": "Come in with the Rain",
+          "duration": 237,
+          "isBonus": true
+        },
+        {
+          "id": 217,
+          "title": "Superstar",
+          "duration": 264,
+          "isBonus": true
+        },
+        {
+          "id": 218,
+          "title": "The Other Side of the Door",
+          "duration": 238,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "Speak Now",
       "cover": "speak_now.jpg",
-      "ledColors": ["#6500D8", "#D00085", "#180060"],
+      "ledColors": [
+        "#6500D8",
+        "#D00085",
+        "#180060"
+      ],
       "tracks": [
-        { "id": 301, "title": "Mine", "duration": null },
-        { "id": 302, "title": "Sparks Fly", "duration": null },
-        { "id": 303, "title": "Back to December", "duration": null },
-        { "id": 304, "title": "Speak Now", "duration": null },
-        { "id": 305, "title": "Dear John", "duration": null },
-        { "id": 306, "title": "Mean", "duration": null },
-        { "id": 307, "title": "The Story of Us", "duration": null },
-        { "id": 308, "title": "Never Grow Up", "duration": null },
-        { "id": 309, "title": "Enchanted", "duration": null },
-        { "id": 310, "title": "Better than Revenge", "duration": null },
-        { "id": 311, "title": "Innocent", "duration": null },
-        { "id": 312, "title": "Haunted", "duration": null },
-        { "id": 313, "title": "Last Kiss", "duration": null },
-        { "id": 314, "title": "Long Live", "duration": null },
-        { "id": 315, "title": "Ours", "duration": null, "isBonus": true },
-        { "id": 316, "title": "If This was a Movie", "duration": null, "isBonus": true },
-        { "id": 317, "title": "Superman", "duration": null, "isBonus": true }
+        {
+          "id": 301,
+          "title": "Mine",
+          "duration": 235
+        },
+        {
+          "id": 302,
+          "title": "Sparks Fly",
+          "duration": 264
+        },
+        {
+          "id": 303,
+          "title": "Back to December",
+          "duration": 298
+        },
+        {
+          "id": 304,
+          "title": "Speak Now",
+          "duration": 246
+        },
+        {
+          "id": 305,
+          "title": "Dear John",
+          "duration": 409
+        },
+        {
+          "id": 306,
+          "title": "Mean",
+          "duration": 242
+        },
+        {
+          "id": 307,
+          "title": "The Story of Us",
+          "duration": 271
+        },
+        {
+          "id": 308,
+          "title": "Never Grow Up",
+          "duration": 297
+        },
+        {
+          "id": 309,
+          "title": "Enchanted",
+          "duration": 352
+        },
+        {
+          "id": 310,
+          "title": "Better than Revenge",
+          "duration": 224
+        },
+        {
+          "id": 311,
+          "title": "Innocent",
+          "duration": 305
+        },
+        {
+          "id": 312,
+          "title": "Haunted",
+          "duration": 249
+        },
+        {
+          "id": 313,
+          "title": "Last Kiss",
+          "duration": 373
+        },
+        {
+          "id": 314,
+          "title": "Long Live",
+          "duration": 320
+        },
+        {
+          "id": 315,
+          "title": "Ours",
+          "duration": 238,
+          "isBonus": true
+        },
+        {
+          "id": 316,
+          "title": "If This was a Movie",
+          "duration": 234,
+          "isBonus": true
+        },
+        {
+          "id": 317,
+          "title": "Superman",
+          "duration": 278,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "Red",
       "cover": "red.jpg",
-      "ledColors": ["#C40008", "#700000", "#FF3900"],
+      "ledColors": [
+        "#C40008",
+        "#700000",
+        "#FF3900"
+      ],
       "tracks": [
-        { "id": 401, "title": "State of Grace", "duration": null },
-        { "id": 402, "title": "Red", "duration": null },
-        { "id": 403, "title": "Treacherous", "duration": null },
-        { "id": 404, "title": "I Knew You Were Trouble", "duration": null },
-        { "id": 405, "title": "All Too Well", "duration": null },
-        { "id": 406, "title": "22", "duration": null },
-        { "id": 407, "title": "I Almost Do", "duration": null },
-        { "id": 408, "title": "We Are Never Ever Getting Back Together", "duration": null },
-        { "id": 409, "title": "Stay Stay Stay", "duration": null },
-        { "id": 410, "title": "The Last Time", "duration": null },
-        { "id": 411, "title": "Holy Ground", "duration": null },
-        { "id": 412, "title": "Sad Beatiful Tragic", "duration": null },
-        { "id": 413, "title": "The Lucky One", "duration": null },
-        { "id": 414, "title": "Everything Has Changed", "duration": null },
-        { "id": 415, "title": "Starlight", "duration": null },
-        { "id": 416, "title": "Begin Again", "duration": null },
-        { "id": 417, "title": "The Moment I Knew", "duration": null, "isBonus": true },
-        { "id": 418, "title": "Come Back… Be Here", "duration": null, "isBonus": true },
-        { "id": 419, "title": "Girl at Home", "duration": null, "isBonus": true },
-        { "id": 420, "title": "Safe & Sound", "duration": null, "isBonus": true }
+        {
+          "id": 401,
+          "title": "State of Grace",
+          "duration": 299
+        },
+        {
+          "id": 402,
+          "title": "Red",
+          "duration": 220
+        },
+        {
+          "id": 403,
+          "title": "Treacherous",
+          "duration": 241
+        },
+        {
+          "id": 404,
+          "title": "I Knew You Were Trouble",
+          "duration": 221
+        },
+        {
+          "id": 405,
+          "title": "All Too Well",
+          "duration": 329
+        },
+        {
+          "id": 406,
+          "title": "22",
+          "duration": 231
+        },
+        {
+          "id": 407,
+          "title": "I Almost Do",
+          "duration": 245
+        },
+        {
+          "id": 408,
+          "title": "We Are Never Ever Getting Back Together",
+          "duration": 192
+        },
+        {
+          "id": 409,
+          "title": "Stay Stay Stay",
+          "duration": 208
+        },
+        {
+          "id": 410,
+          "title": "The Last Time",
+          "duration": 300
+        },
+        {
+          "id": 411,
+          "title": "Holy Ground",
+          "duration": 206
+        },
+        {
+          "id": 412,
+          "title": "Sad Beatiful Tragic",
+          "duration": 285
+        },
+        {
+          "id": 413,
+          "title": "The Lucky One",
+          "duration": 236
+        },
+        {
+          "id": 414,
+          "title": "Everything Has Changed",
+          "duration": 249
+        },
+        {
+          "id": 415,
+          "title": "Starlight",
+          "duration": 223
+        },
+        {
+          "id": 416,
+          "title": "Begin Again",
+          "duration": 239
+        },
+        {
+          "id": 417,
+          "title": "The Moment I Knew",
+          "duration": 283,
+          "isBonus": true
+        },
+        {
+          "id": 418,
+          "title": "Come Back… Be Here",
+          "duration": 226,
+          "isBonus": true
+        },
+        {
+          "id": 419,
+          "title": "Girl at Home",
+          "duration": 221,
+          "isBonus": true
+        },
+        {
+          "id": 420,
+          "title": "Safe & Sound",
+          "duration": 240,
+          "isBonus": true
+        },
+        {
+          "id": 421,
+          "title": "All Too Well (10 Minute Version) (Taylor's Version)",
+          "duration": 613
+        }
       ]
     },
     {
       "name": "1989",
       "cover": "1989.jpg",
-      "ledColors": ["#368FC5", "#78B9D9", "#D28D70"],
+      "ledColors": [
+        "#368FC5",
+        "#78B9D9",
+        "#D28D70"
+      ],
       "tracks": [
-        { "id": 501, "title": "Welcome to New York", "duration": 213 },
-        { "id": 502, "title": "Blank Space", "duration": 232 },
-        { "id": 503, "title": "Style", "duration": 231 },
-        { "id": 504, "title": "Out of the Woods", "duration": 236 },
-        { "id": 505, "title": "All You Had to Do Was Stay", "duration": 193 },
-        { "id": 506, "title": "Shake it Off", "duration": 219 },
-        { "id": 507, "title": "I Wish You Would", "duration": 207 },
-        { "id": 508, "title": "Bad Blood", "duration": 212 },
-        { "id": 509, "title": "Wildest Dreams", "duration": 220 },
-        { "id": 510, "title": "How you Get the Girl", "duration": 248 },
-        { "id": 511, "title": "This Love", "duration": 250 },
-        { "id": 512, "title": "I Know Places", "duration": 196 },
-        { "id": 513, "title": "Clean", "duration": 271 },
-        { "id": 514, "title": "Wonderland", "duration": null, "isBonus": true  },
-        { "id": 515, "title": "You Are in Love", "duration": null, "isBonus": true  },
-        { "id": 516, "title": "New Romantics", "duration": null, "isBonus": true  }
+        {
+          "id": 501,
+          "title": "Welcome to New York",
+          "duration": 213
+        },
+        {
+          "id": 502,
+          "title": "Blank Space",
+          "duration": 232
+        },
+        {
+          "id": 503,
+          "title": "Style",
+          "duration": 231
+        },
+        {
+          "id": 504,
+          "title": "Out of the Woods",
+          "duration": 236
+        },
+        {
+          "id": 505,
+          "title": "All You Had to Do Was Stay",
+          "duration": 193
+        },
+        {
+          "id": 506,
+          "title": "Shake it Off",
+          "duration": 219
+        },
+        {
+          "id": 507,
+          "title": "I Wish You Would",
+          "duration": 207
+        },
+        {
+          "id": 508,
+          "title": "Bad Blood",
+          "duration": 212
+        },
+        {
+          "id": 509,
+          "title": "Wildest Dreams",
+          "duration": 220
+        },
+        {
+          "id": 510,
+          "title": "How you Get the Girl",
+          "duration": 248
+        },
+        {
+          "id": 511,
+          "title": "This Love",
+          "duration": 250
+        },
+        {
+          "id": 512,
+          "title": "I Know Places",
+          "duration": 196
+        },
+        {
+          "id": 513,
+          "title": "Clean",
+          "duration": 271
+        },
+        {
+          "id": 514,
+          "title": "Wonderland",
+          "duration": 251,
+          "isBonus": true
+        },
+        {
+          "id": 515,
+          "title": "You Are in Love",
+          "duration": 272,
+          "isBonus": true
+        },
+        {
+          "id": 516,
+          "title": "New Romantics",
+          "duration": 235,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "Reputation",
       "cover": "reputation.jpg",
-      "ledColors": ["#141414", "#454545", "#888888"],
+      "ledColors": [
+        "#141414",
+        "#454545",
+        "#888888"
+      ],
       "tracks": [
-        { "id": 601, "title": "…Ready for It?", "duration": null },
-        { "id": 602, "title": "End Game", "duration": null },
-        { "id": 603, "title": "I Did Something Bad", "duration": null },
-        { "id": 604, "title": "Don’t Blame Me", "duration": null },
-        { "id": 605, "title": "Delicate", "duration": null },
-        { "id": 606, "title": "Look What You Made Me Do", "duration": null },
-        { "id": 607, "title": "So It Goes…", "duration": null },
-        { "id": 608, "title": "Gorgeous", "duration": null },
-        { "id": 609, "title": "Getaway Car", "duration": null },
-        { "id": 610, "title": "King of My Heart", "duration": null },
-        { "id": 611, "title": "Dancing with Our Hands Tied", "duration": null },
-        { "id": 612, "title": "Dress", "duration": null },
-        { "id": 613, "title": "This Is Why We Can’t Have Nice Things", "duration": null },
-        { "id": 614, "title": "Call It What You Want", "duration": null },
-        { "id": 615, "title": "New Year’s Day", "duration": null }
+        {
+          "id": 601,
+          "title": "…Ready for It?",
+          "duration": 208
+        },
+        {
+          "id": 602,
+          "title": "End Game",
+          "duration": 245
+        },
+        {
+          "id": 603,
+          "title": "I Did Something Bad",
+          "duration": 239
+        },
+        {
+          "id": 604,
+          "title": "Don’t Blame Me",
+          "duration": 236
+        },
+        {
+          "id": 605,
+          "title": "Delicate",
+          "duration": 231
+        },
+        {
+          "id": 606,
+          "title": "Look What You Made Me Do",
+          "duration": 212
+        },
+        {
+          "id": 607,
+          "title": "So It Goes…",
+          "duration": 228
+        },
+        {
+          "id": 608,
+          "title": "Gorgeous",
+          "duration": 212
+        },
+        {
+          "id": 609,
+          "title": "Getaway Car",
+          "duration": 235
+        },
+        {
+          "id": 610,
+          "title": "King of My Heart",
+          "duration": 214
+        },
+        {
+          "id": 611,
+          "title": "Dancing with Our Hands Tied",
+          "duration": 212
+        },
+        {
+          "id": 612,
+          "title": "Dress",
+          "duration": 230
+        },
+        {
+          "id": 613,
+          "title": "This Is Why We Can’t Have Nice Things",
+          "duration": 207
+        },
+        {
+          "id": 614,
+          "title": "Call It What You Want",
+          "duration": 206
+        },
+        {
+          "id": 615,
+          "title": "New Year’s Day",
+          "duration": 235
+        }
       ]
     },
     {
       "name": "Lover",
       "cover": "lover.jpg",
-      "ledColors": ["#E94C9A", "#39A9DE", "#A16ADD"],
+      "ledColors": [
+        "#E94C9A",
+        "#39A9DE",
+        "#A16ADD"
+      ],
       "tracks": [
-        { "id": 701, "title": "I Forgot That You Existed", "duration": 171 },
-        { "id": 702, "title": "Cruel Summer", "duration": 178 },
-        { "id": 703, "title": "Lover", "duration": 221 },
-        { "id": 704, "title": "The Man", "duration": 190 },
-        { "id": 705, "title": "The Archer", "duration": 211 },
-        { "id": 706, "title": "I Think He Knows", "duration": 173 },
-        { "id": 707, "title": "Miss Americana & the Heartbreak Prince", "duration": 234 },
-        { "id": 708, "title": "Paper Rings", "duration": 222 },
-        { "id": 709, "title": "Cornelia Street", "duration": 287 },
-        { "id": 710, "title": "Death by a Thousand Cuts", "duration": 199 },
-        { "id": 711, "title": "London Boy", "duration": 190 },
-        { "id": 712, "title": "Soon You’ll Get Better", "duration": 202 },
-        { "id": 713, "title": "False God", "duration": 200 },
-        { "id": 714, "title": "You Need to Calm Down", "duration": 171 },
-        { "id": 715, "title": "Afterglow", "duration": 223 },
-        { "id": 716, "title": "Me!", "duration": 193 },
-        { "id": 717, "title": "It’s Nice to Have a Friend", "duration": 150 },
-        { "id": 718, "title": "Daylight", "duration": 293 }
+        {
+          "id": 701,
+          "title": "I Forgot That You Existed",
+          "duration": 171
+        },
+        {
+          "id": 702,
+          "title": "Cruel Summer",
+          "duration": 178
+        },
+        {
+          "id": 703,
+          "title": "Lover",
+          "duration": 221
+        },
+        {
+          "id": 704,
+          "title": "The Man",
+          "duration": 190
+        },
+        {
+          "id": 705,
+          "title": "The Archer",
+          "duration": 211
+        },
+        {
+          "id": 706,
+          "title": "I Think He Knows",
+          "duration": 173
+        },
+        {
+          "id": 707,
+          "title": "Miss Americana & the Heartbreak Prince",
+          "duration": 234
+        },
+        {
+          "id": 708,
+          "title": "Paper Rings",
+          "duration": 222
+        },
+        {
+          "id": 709,
+          "title": "Cornelia Street",
+          "duration": 287
+        },
+        {
+          "id": 710,
+          "title": "Death by a Thousand Cuts",
+          "duration": 199
+        },
+        {
+          "id": 711,
+          "title": "London Boy",
+          "duration": 190
+        },
+        {
+          "id": 712,
+          "title": "Soon You’ll Get Better",
+          "duration": 202
+        },
+        {
+          "id": 713,
+          "title": "False God",
+          "duration": 200
+        },
+        {
+          "id": 714,
+          "title": "You Need to Calm Down",
+          "duration": 171
+        },
+        {
+          "id": 715,
+          "title": "Afterglow",
+          "duration": 223
+        },
+        {
+          "id": 716,
+          "title": "Me!",
+          "duration": 193
+        },
+        {
+          "id": 717,
+          "title": "It’s Nice to Have a Friend",
+          "duration": 150
+        },
+        {
+          "id": 718,
+          "title": "Daylight",
+          "duration": 293
+        }
       ]
     },
     {
       "name": "Folklore",
       "cover": "folklore.jpg",
-      "ledColors": ["#202E38", "#526873"],
+      "ledColors": [
+        "#202E38",
+        "#526873"
+      ],
       "tracks": [
-        { "id": 801, "title": "The 1", "duration": 210 },
-        { "id": 802, "title": "Cardigan", "duration": 240 },
-        { "id": 803, "title": "The Last Great American Dynasty", "duration": 231 },
-        { "id": 804, "title": "Exile", "duration": 286 },
-        { "id": 805, "title": "My Tears Ricochet", "duration": 256 },
-        { "id": 806, "title": "Mirroball", "duration": 209 },
-        { "id": 807, "title": "Seven", "duration": 209 },
-        { "id": 808, "title": "August", "duration": 262 },
-        { "id": 809, "title": "This Is Me Trying", "duration": 195 },
-        { "id": 810, "title": "Illicit Affairs", "duration": 191 },
-        { "id": 811, "title": "Invisible String", "duration": 253 },
-        { "id": 812, "title": "Mad Woman", "duration": 237 },
-        { "id": 813, "title": "Epiphany", "duration": 290 },
-        { "id": 814, "title": "Betty", "duration": 295 },
-        { "id": 815, "title": "Peace", "duration": 234 },
-        { "id": 816, "title": "Hoax", "duration": 220 },
-        { "id": 817, "title": "The Lakes", "duration": 212, "isBonus": true }
+        {
+          "id": 801,
+          "title": "The 1",
+          "duration": 210
+        },
+        {
+          "id": 802,
+          "title": "Cardigan",
+          "duration": 240
+        },
+        {
+          "id": 803,
+          "title": "The Last Great American Dynasty",
+          "duration": 231
+        },
+        {
+          "id": 804,
+          "title": "Exile",
+          "duration": 286
+        },
+        {
+          "id": 805,
+          "title": "My Tears Ricochet",
+          "duration": 256
+        },
+        {
+          "id": 806,
+          "title": "Mirroball",
+          "duration": 209
+        },
+        {
+          "id": 807,
+          "title": "Seven",
+          "duration": 209
+        },
+        {
+          "id": 808,
+          "title": "August",
+          "duration": 262
+        },
+        {
+          "id": 809,
+          "title": "This Is Me Trying",
+          "duration": 195
+        },
+        {
+          "id": 810,
+          "title": "Illicit Affairs",
+          "duration": 191
+        },
+        {
+          "id": 811,
+          "title": "Invisible String",
+          "duration": 253
+        },
+        {
+          "id": 812,
+          "title": "Mad Woman",
+          "duration": 237
+        },
+        {
+          "id": 813,
+          "title": "Epiphany",
+          "duration": 290
+        },
+        {
+          "id": 814,
+          "title": "Betty",
+          "duration": 295
+        },
+        {
+          "id": 815,
+          "title": "Peace",
+          "duration": 234
+        },
+        {
+          "id": 816,
+          "title": "Hoax",
+          "duration": 220
+        },
+        {
+          "id": 817,
+          "title": "The Lakes",
+          "duration": 212,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "Evermore",
       "cover": "evermore.jpg",
-      "ledColors": ["#995C38", "#C58C49", "#405A42"],
+      "ledColors": [
+        "#995C38",
+        "#C58C49",
+        "#405A42"
+      ],
       "tracks": [
-        { "id": 901, "title": "Willow", "duration": 215 },
-        { "id": 902, "title": "Champagne Problems", "duration": 244 },
-        { "id": 903, "title": "Gold Rush", "duration": 185 },
-        { "id": 904, "title": "'Tis the Damn Season", "duration": 230 },
-        { "id": 905, "title": "Tolerate It", "duration": 245 },
-        { "id": 906, "title": "No Body, No Crime", "duration": 216 },
-        { "id": 907, "title": "Happiness", "duration": 315 },
-        { "id": 908, "title": "Dorothea", "duration": 226 },
-        { "id": 909, "title": "Coney Island", "duration": 275 },
-        { "id": 910, "title": "Ivy", "duration": 260 },
-        { "id": 911, "title": "Cowboy like Me", "duration": 275 },
-        { "id": 912, "title": "Long Story Short", "duration": 216 },
-        { "id": 913, "title": "Marjorie", "duration": 258 },
-        { "id": 914, "title": "Closure", "duration": 181 },
-        { "id": 915, "title": "Evermore", "duration": 304 },
-        { "id": 916, "title": "Right Where You Left Me", "duration": 245, "isBonus": true },
-        { "id": 917, "title": "It's Time to Go", "duration": 255, "isBonus": true }
+        {
+          "id": 901,
+          "title": "Willow",
+          "duration": 215
+        },
+        {
+          "id": 902,
+          "title": "Champagne Problems",
+          "duration": 244
+        },
+        {
+          "id": 903,
+          "title": "Gold Rush",
+          "duration": 185
+        },
+        {
+          "id": 904,
+          "title": "'Tis the Damn Season",
+          "duration": 230
+        },
+        {
+          "id": 905,
+          "title": "Tolerate It",
+          "duration": 245
+        },
+        {
+          "id": 906,
+          "title": "No Body, No Crime",
+          "duration": 216
+        },
+        {
+          "id": 907,
+          "title": "Happiness",
+          "duration": 315
+        },
+        {
+          "id": 908,
+          "title": "Dorothea",
+          "duration": 226
+        },
+        {
+          "id": 909,
+          "title": "Coney Island",
+          "duration": 275
+        },
+        {
+          "id": 910,
+          "title": "Ivy",
+          "duration": 260
+        },
+        {
+          "id": 911,
+          "title": "Cowboy like Me",
+          "duration": 275
+        },
+        {
+          "id": 912,
+          "title": "Long Story Short",
+          "duration": 216
+        },
+        {
+          "id": 913,
+          "title": "Marjorie",
+          "duration": 258
+        },
+        {
+          "id": 914,
+          "title": "Closure",
+          "duration": 181
+        },
+        {
+          "id": 915,
+          "title": "Evermore",
+          "duration": 304
+        },
+        {
+          "id": 916,
+          "title": "Right Where You Left Me",
+          "duration": 245,
+          "isBonus": true
+        },
+        {
+          "id": 917,
+          "title": "It's Time to Go",
+          "duration": 255,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "Midnights",
       "cover": "midnights.jpg",
-      "ledColors": ["#071344", "#0878D8", "#4930A8"],
+      "ledColors": [
+        "#071344",
+        "#0878D8",
+        "#4930A8"
+      ],
       "tracks": [
-        { "id": 1001, "title": "Lavender Haze", "duration": 202 },
-        { "id": 1002, "title": "Maroon", "duration": 218 },
-        { "id": 1003, "title": "Anti-Hero", "duration": 201 },
-        { "id": 1004, "title": "Snow on the Beach", "duration": 256 },
-        { "id": 1005, "title": "You're on Your Own, Kid", "duration": 194 },
-        { "id": 1006, "title": "Midnight Rain", "duration": 175 },
-        { "id": 1007, "title": "Question...?", "duration": 211 },
-        { "id": 1008, "title": "Vigilante Shit", "duration": 165 },
-        { "id": 1009, "title": "Bejeweled", "duration": 194 },
-        { "id": 1010, "title": "Labyrinth", "duration": 248 },
-        { "id": 1011, "title": "Karma", "duration": 205 },
-        { "id": 1012, "title": "Sweet Nothing", "duration": 188 },
-        { "id": 1013, "title": "Mastermind", "duration": 191 },
-        { "id": 1014, "title": "Hits Different", "duration": null, "isBonus": true },
-        { "id": 1015, "title": "The Great War", "duration": null, "isBonus": true },
-        { "id": 1016, "title": "Bigger Tahn the Whole Sky", "duration": null, "isBonus": true },
-        { "id": 1017, "title": "Paris", "duration": null, "isBonus": true },
-        { "id": 1018, "title": "High Infidelity", "duration": null, "isBonus": true },
-        { "id": 1019, "title": "Glitch", "duration": null, "isBonus": true },
-        { "id": 1020, "title": "Would've, Could've, Should've", "duration": null, "isBonus": true },
-        { "id": 1021, "title": "Dear Reader", "duration": null, "isBonus": true },
-        { "id": 1022, "title": "You're Losing Me", "duration": null, "isBonus": true }
+        {
+          "id": 1001,
+          "title": "Lavender Haze",
+          "duration": 202
+        },
+        {
+          "id": 1002,
+          "title": "Maroon",
+          "duration": 218
+        },
+        {
+          "id": 1003,
+          "title": "Anti-Hero",
+          "duration": 201
+        },
+        {
+          "id": 1004,
+          "title": "Snow on the Beach",
+          "duration": 256
+        },
+        {
+          "id": 1005,
+          "title": "You're on Your Own, Kid",
+          "duration": 194
+        },
+        {
+          "id": 1006,
+          "title": "Midnight Rain",
+          "duration": 175
+        },
+        {
+          "id": 1007,
+          "title": "Question...?",
+          "duration": 211
+        },
+        {
+          "id": 1008,
+          "title": "Vigilante Shit",
+          "duration": 165
+        },
+        {
+          "id": 1009,
+          "title": "Bejeweled",
+          "duration": 194
+        },
+        {
+          "id": 1010,
+          "title": "Labyrinth",
+          "duration": 248
+        },
+        {
+          "id": 1011,
+          "title": "Karma",
+          "duration": 205
+        },
+        {
+          "id": 1012,
+          "title": "Sweet Nothing",
+          "duration": 188
+        },
+        {
+          "id": 1013,
+          "title": "Mastermind",
+          "duration": 191
+        },
+        {
+          "id": 1014,
+          "title": "Hits Different",
+          "duration": 235,
+          "isBonus": true
+        },
+        {
+          "id": 1015,
+          "title": "The Great War",
+          "duration": 244,
+          "isBonus": true
+        },
+        {
+          "id": 1016,
+          "title": "Bigger Tahn the Whole Sky",
+          "duration": 218,
+          "isBonus": true
+        },
+        {
+          "id": 1017,
+          "title": "Paris",
+          "duration": 200,
+          "isBonus": true
+        },
+        {
+          "id": 1018,
+          "title": "High Infidelity",
+          "duration": 236,
+          "isBonus": true
+        },
+        {
+          "id": 1019,
+          "title": "Glitch",
+          "duration": 152,
+          "isBonus": true
+        },
+        {
+          "id": 1020,
+          "title": "Would've, Could've, Should've",
+          "duration": 264,
+          "isBonus": true
+        },
+        {
+          "id": 1021,
+          "title": "Dear Reader",
+          "duration": 229,
+          "isBonus": true
+        },
+        {
+          "id": 1022,
+          "title": "You're Losing Me",
+          "duration": 278,
+          "isBonus": true
+        }
       ]
     },
     {
       "name": "The Tortured Poetes Department",
       "cover": "tortured_poets_department.jpg",
-      "ledColors": ["#30251C", "#80664A"],
+      "ledColors": [
+        "#30251C",
+        "#80664A"
+      ],
       "tracks": [
-        { "id": 1101, "title": "Fortnight", "duration": 229 },
-        { "id": 1102, "title": "The Tortured Poets Department", "duration": 293 },
-        { "id": 1103, "title": "My Boy Only Breaks His Favorite Toys", "duration": 204 },
-        { "id": 1104, "title": "Down Bad", "duration": 261 },
-        { "id": 1105, "title": "So Long, London", "duration": 263 },
-        { "id": 1106, "title": "But Daddy I Love Him", "duration": 340 },
-        { "id": 1107, "title": "Fresh Out the Slammer", "duration": 211 },
-        { "id": 1108, "title": "Florida!!!", "duration": 215 },
-        { "id": 1109, "title": "Guility as Sin?", "duration": 254 },
-        { "id": 1110, "title": "Who's Afraid of Little Old Me?", "duration": 334 },
-        { "id": 1111, "title": "I Can Fix Him (No Really I Can)", "duration": 156 },
-        { "id": 1112, "title": "Loml", "duration": 277 },
-        { "id": 1113, "title": "I Can Do It with a Broken Heart", "duration": 218 },
-        { "id": 1114, "title": "The Smallest Man Who Ever Lived", "duration": 246 },
-        { "id": 1115, "title": "The Alchemy", "duration": 197 },
-        { "id": 1116, "title": "Clara Bow", "duration": 217 },
-        { "id": 1117, "title": "The Black Dog", "duration": null },
-        { "id": 1118, "title": "Imgonnagetyouback", "duration": null },
-        { "id": 1119, "title": "The Albatross", "duration": null },
-        { "id": 1120, "title": "Chloe or Sam or Sophia or Marcus", "duration": null },
-        { "id": 1121, "title": "How Did It End?", "duration": null },
-        { "id": 1122, "title": "So High School", "duration": null },
-        { "id": 1123, "title": "I Hate It Here", "duration": null },
-        { "id": 1124, "title": "Thank you Aimee", "duration": null },
-        { "id": 1125, "title": "I Look in People's Windows", "duration": null },
-        { "id": 1126, "title": "The Prophecy", "duration": null },
-        { "id": 1127, "title": "Cassandra", "duration": null },
-        { "id": 1128, "title": "Peter", "duration": null },
-        { "id": 1129, "title": "The Bolter", "duration": null },
-        { "id": 1130, "title": "Robin", "duration": null },
-        { "id": 1131, "title": "The Manuscript", "duration": 225 }
+        {
+          "id": 1101,
+          "title": "Fortnight",
+          "duration": 229
+        },
+        {
+          "id": 1102,
+          "title": "The Tortured Poets Department",
+          "duration": 293
+        },
+        {
+          "id": 1103,
+          "title": "My Boy Only Breaks His Favorite Toys",
+          "duration": 204
+        },
+        {
+          "id": 1104,
+          "title": "Down Bad",
+          "duration": 261
+        },
+        {
+          "id": 1105,
+          "title": "So Long, London",
+          "duration": 263
+        },
+        {
+          "id": 1106,
+          "title": "But Daddy I Love Him",
+          "duration": 340
+        },
+        {
+          "id": 1107,
+          "title": "Fresh Out the Slammer",
+          "duration": 211
+        },
+        {
+          "id": 1108,
+          "title": "Florida!!!",
+          "duration": 215
+        },
+        {
+          "id": 1109,
+          "title": "Guility as Sin?",
+          "duration": 254
+        },
+        {
+          "id": 1110,
+          "title": "Who's Afraid of Little Old Me?",
+          "duration": 334
+        },
+        {
+          "id": 1111,
+          "title": "I Can Fix Him (No Really I Can)",
+          "duration": 156
+        },
+        {
+          "id": 1112,
+          "title": "Loml",
+          "duration": 277
+        },
+        {
+          "id": 1113,
+          "title": "I Can Do It with a Broken Heart",
+          "duration": 218
+        },
+        {
+          "id": 1114,
+          "title": "The Smallest Man Who Ever Lived",
+          "duration": 246
+        },
+        {
+          "id": 1115,
+          "title": "The Alchemy",
+          "duration": 197
+        },
+        {
+          "id": 1116,
+          "title": "Clara Bow",
+          "duration": 217
+        },
+        {
+          "id": 1117,
+          "title": "The Black Dog",
+          "duration": 243
+        },
+        {
+          "id": 1118,
+          "title": "Imgonnagetyouback",
+          "duration": 225
+        },
+        {
+          "id": 1119,
+          "title": "The Albatross",
+          "duration": 188
+        },
+        {
+          "id": 1120,
+          "title": "Chloe or Sam or Sophia or Marcus",
+          "duration": 219
+        },
+        {
+          "id": 1121,
+          "title": "How Did It End?",
+          "duration": 242
+        },
+        {
+          "id": 1122,
+          "title": "So High School",
+          "duration": 234
+        },
+        {
+          "id": 1123,
+          "title": "I Hate It Here",
+          "duration": 247
+        },
+        {
+          "id": 1124,
+          "title": "Thank you Aimee",
+          "duration": 269
+        },
+        {
+          "id": 1125,
+          "title": "I Look in People's Windows",
+          "duration": 138
+        },
+        {
+          "id": 1126,
+          "title": "The Prophecy",
+          "duration": 254
+        },
+        {
+          "id": 1127,
+          "title": "Cassandra",
+          "duration": 245
+        },
+        {
+          "id": 1128,
+          "title": "Peter",
+          "duration": 290
+        },
+        {
+          "id": 1129,
+          "title": "The Bolter",
+          "duration": 243
+        },
+        {
+          "id": 1130,
+          "title": "Robin",
+          "duration": 246
+        },
+        {
+          "id": 1131,
+          "title": "The Manuscript",
+          "duration": 225
+        }
       ]
     },
     {
       "name": "The Life of a Showgirl",
       "cover": "life_of_a_showgirl.jpg",
-      "ledColors": ["#E87928", "#279E8E"],
+      "ledColors": [
+        "#E87928",
+        "#279E8E"
+      ],
       "tracks": [
-        { "id": 1201, "title": "The Fate of Ophelia", "duration": 226 },
-        { "id": 1202, "title": "Elizabeth Taylor", "duration": 208 },
-        { "id": 1203, "title": "Opalite", "duration": 235 },
-        { "id": 1204, "title": "Father Figure", "duration": 213 },
-        { "id": 1205, "title": "Eldest Daughter", "duration": 246 },
-        { "id": 1206, "title": "Ruin the Friendship", "duration": 221 },
-        { "id": 1207, "title": "Actually Romantic", "duration": 164 },
-        { "id": 1208, "title": "Wish List", "duration": 207 },
-        { "id": 1209, "title": "Wood", "duration": 151 },
-        { "id": 1210, "title": "Cancelled", "duration": 211 },
-        { "id": 1211, "title": "Honey", "duration": 182 },
-        { "id": 1212, "title": "The Life of a Showgirl", "duration": 242 },
-        { "id": 1213, "title": "Patient Zero", "duration": 225 },
-        { "id": 1214, "title": "Cleveland!", "duration": 206 },
-        { "id": 1215, "title": "Pink Clouding", "duration": 190 },
-        { "id": 1216, "title": "Babylon", "duration": 219 }
+        {
+          "id": 1201,
+          "title": "The Fate of Ophelia",
+          "duration": 226
+        },
+        {
+          "id": 1202,
+          "title": "Elizabeth Taylor",
+          "duration": 208
+        },
+        {
+          "id": 1203,
+          "title": "Opalite",
+          "duration": 235
+        },
+        {
+          "id": 1204,
+          "title": "Father Figure",
+          "duration": 213
+        },
+        {
+          "id": 1205,
+          "title": "Eldest Daughter",
+          "duration": 246
+        },
+        {
+          "id": 1206,
+          "title": "Ruin the Friendship",
+          "duration": 221
+        },
+        {
+          "id": 1207,
+          "title": "Actually Romantic",
+          "duration": 164
+        },
+        {
+          "id": 1208,
+          "title": "Wish List",
+          "duration": 207
+        },
+        {
+          "id": 1209,
+          "title": "Wood",
+          "duration": 151
+        },
+        {
+          "id": 1210,
+          "title": "Cancelled",
+          "duration": 211
+        },
+        {
+          "id": 1211,
+          "title": "Honey",
+          "duration": 182
+        },
+        {
+          "id": 1212,
+          "title": "The Life of a Showgirl",
+          "duration": 242
+        },
+        {
+          "id": 1213,
+          "title": "Patient Zero",
+          "duration": 229
+        },
+        {
+          "id": 1214,
+          "title": "Cleveland!",
+          "duration": 209
+        },
+        {
+          "id": 1215,
+          "title": "Pink Clouding",
+          "duration": 194
+        },
+        {
+          "id": 1216,
+          "title": "Babylon",
+          "duration": 223
+        }
       ]
     }
   ]
