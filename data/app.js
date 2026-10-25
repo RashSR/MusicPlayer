@@ -18,6 +18,10 @@ let ledBrightnessUpdateTimer = null;
 let ledBrightnessRequestSequence = 0;
 let ledBrightnessRequestInProgress = false;
 let pendingLedBrightness = null;
+let ledSaturationUpdateTimer = null;
+let ledSaturationRequestSequence = 0;
+let ledSaturationRequestInProgress = false;
+let pendingLedSaturation = null;
 
 const domElements = {
     currentSong: document.getElementById('currentSong'),
@@ -33,6 +37,9 @@ const domElements = {
     ledBrightnessSlider: document.getElementById('ledBrightnessSlider'),
     ledBrightnessValue: document.getElementById('ledBrightnessValue'),
     ledBrightnessMessage: document.getElementById('ledBrightnessMessage'),
+    ledSaturationSlider: document.getElementById('ledSaturationSlider'),
+    ledSaturationValue: document.getElementById('ledSaturationValue'),
+    ledSaturationMessage: document.getElementById('ledSaturationMessage'),
 };
 
 function updateVolumeDisplay(volume) {
@@ -92,6 +99,9 @@ function markLedStateUnavailable() {
     domElements.ledBrightnessSlider.disabled = true;
     domElements.ledBrightnessValue.textContent = '--';
     domElements.ledBrightnessMessage.textContent = 'LED brightness unavailable';
+    domElements.ledSaturationSlider.disabled = true;
+    domElements.ledSaturationValue.textContent = '--';
+    domElements.ledSaturationMessage.textContent = 'LED saturation unavailable';
 }
 
 function updateLedBrightnessDisplay(brightness) {
@@ -99,6 +109,76 @@ function updateLedBrightnessDisplay(brightness) {
     domElements.ledBrightnessSlider.disabled = false;
     domElements.ledBrightnessValue.textContent = String(brightness);
     domElements.ledBrightnessMessage.textContent = '';
+}
+
+function updateLedSaturationDisplay(saturation) {
+    domElements.ledSaturationSlider.value = String(saturation);
+    domElements.ledSaturationSlider.disabled = false;
+    domElements.ledSaturationValue.textContent = String(saturation);
+    domElements.ledSaturationMessage.textContent = '';
+}
+
+function scheduleLedSaturationUpdate(immediate = false) {
+    const saturation = Number(domElements.ledSaturationSlider.value);
+    const sequence = ++ledSaturationRequestSequence;
+    domElements.ledSaturationValue.textContent = String(saturation);
+    clearTimeout(ledSaturationUpdateTimer);
+    if(immediate) {
+        ledSaturationUpdateTimer = null;
+        sendLedSaturationUpdate(saturation, sequence);
+    } else {
+        ledSaturationUpdateTimer = setTimeout(() => {
+            ledSaturationUpdateTimer = null;
+            sendLedSaturationUpdate(saturation, sequence);
+        }, 150);
+    }
+}
+
+async function sendLedSaturationUpdate(saturation, sequence) {
+    if(ledSaturationRequestInProgress) {
+        pendingLedSaturation = {saturation, sequence};
+        return;
+    }
+
+    ledSaturationRequestInProgress = true;
+    try {
+        const response = await fetch('/api/leds/saturation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                saturation: String(saturation),
+            }),
+        });
+        if(!response.ok) {
+            console.error('[MusicPlayer] LED saturation update failed:',
+                response.status);
+            throw new Error(`LED saturation update failed (HTTP ${response.status})`);
+        }
+
+        const status = await response.json();
+        if(!Number.isInteger(status.led_saturation) ||
+            status.led_saturation < 0 || status.led_saturation > 150) {
+            throw new Error('LED saturation response has no valid value');
+        }
+        if(sequence === ledSaturationRequestSequence) {
+            updateLedSaturationDisplay(status.led_saturation);
+        }
+    } catch(error) {
+        console.error('[MusicPlayer] LED saturation request failed:', error);
+        domElements.ledSaturationMessage.textContent =
+            'Could not confirm saturation; checking device...';
+    } finally {
+        ledSaturationRequestInProgress = false;
+        if(pendingLedSaturation !== null) {
+            const pending = pendingLedSaturation;
+            pendingLedSaturation = null;
+            sendLedSaturationUpdate(pending.saturation, pending.sequence);
+        } else if(ledSaturationUpdateTimer === null) {
+            await syncDeviceStatus();
+        }
+    }
 }
 
 function scheduleLedBrightnessUpdate(immediate = false) {
@@ -173,6 +253,7 @@ async function syncDeviceStatus() {
     const sequence = volumeRequestSequence;
     const ledSequence = ledRequestSequence;
     const brightnessSequence = ledBrightnessRequestSequence;
+    const saturationSequence = ledSaturationRequestSequence;
     try {
         const response = await fetch('/api/status');
         if(!response.ok) {
@@ -205,6 +286,17 @@ async function syncDeviceStatus() {
                 updateLedBrightnessDisplay(status.led_brightness);
             } else {
                 console.error('[MusicPlayer] Status response has no valid LED brightness.');
+                markLedStateUnavailable();
+            }
+        }
+        if(!ledSaturationRequestInProgress &&
+            ledSaturationUpdateTimer === null &&
+            saturationSequence === ledSaturationRequestSequence) {
+            if(Number.isInteger(status.led_saturation) &&
+                status.led_saturation >= 0 && status.led_saturation <= 150) {
+                updateLedSaturationDisplay(status.led_saturation);
+            } else {
+                console.error('[MusicPlayer] Status response has no valid LED saturation.');
                 markLedStateUnavailable();
             }
         }
@@ -661,6 +753,10 @@ window.addEventListener('DOMContentLoaded', () => {
         'input', () => scheduleLedBrightnessUpdate());
     domElements.ledBrightnessSlider.addEventListener(
         'change', () => scheduleLedBrightnessUpdate(true));
+    domElements.ledSaturationSlider.addEventListener(
+        'input', () => scheduleLedSaturationUpdate());
+    domElements.ledSaturationSlider.addEventListener(
+        'change', () => scheduleLedSaturationUpdate(true));
     syncDeviceStatus();
     setInterval(syncDeviceStatus, 5000);
 });

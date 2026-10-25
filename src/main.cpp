@@ -16,6 +16,7 @@ bool wasConnectedToWiFi = false;
 bool wifiConfigured = false;
 bool webServerStarted = false;
 bool ledsEnabled = true;
+uint8_t ledSaturation = 100;
 unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 10000;
 uint32_t lastUptimeMillis = 0;
@@ -677,6 +678,32 @@ void handleSetLedBrightness() {
   sendHttpResponse(200, "application/json", body);
 }
 
+void handleSetLedSaturation() {
+  server.sendHeader("Cache-Control", "no-store");
+  if (!server.hasArg("saturation")) {
+    sendHttpResponse(400, "text/plain", "Missing LED saturation");
+    return;
+  }
+
+  uint32_t requestedSaturation = 0;
+  if (!parseUnsignedDecimal(server.arg("saturation"), 150,
+                            requestedSaturation)) {
+    sendHttpResponse(
+        400, "text/plain",
+        "Invalid LED saturation: expected a decimal integer from 0 to 150");
+    return;
+  }
+
+  ledSaturation = static_cast<uint8_t>(requestedSaturation);
+  ledAlbumLighting.setSaturation(ledSaturation);
+
+  StaticJsonDocument<48> response;
+  response["led_saturation"] = ledSaturation;
+  String body;
+  serializeJson(response, body);
+  sendHttpResponse(200, "application/json", body);
+}
+
 void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
@@ -699,6 +726,7 @@ void handleStatus(){
   response["dfplayer_uart"] = dfPlayerDiagnostic.connectionStatus();
   response["leds_enabled"] = ledsEnabled;
   response["led_brightness"] = ledAlbumLighting.brightness();
+  response["led_saturation"] = ledSaturation;
   if (dfPlayerDiagnostic.volume() >= 0) {
     response["volume"] = dfPlayerDiagnostic.volume();
   } else {
@@ -796,6 +824,7 @@ void setupRoutes(){
   server.on("/api/volume", HTTP_GET, handleSetVolume);
   server.on("/api/leds", HTTP_POST, handleSetLeds);
   server.on("/api/leds/brightness", HTTP_POST, handleSetLedBrightness);
+  server.on("/api/leds/saturation", HTTP_POST, handleSetLedSaturation);
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/playback-state", HTTP_POST, handlePlaybackState);
   server.onNotFound(handleNotFound);

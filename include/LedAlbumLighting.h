@@ -30,6 +30,22 @@ class LedAlbumLighting {
     return brightnessPercent_;
   }
 
+  void setSaturation(uint8_t saturationPercent) {
+    if (saturationPercent > 150 ||
+        saturationPercent_ == saturationPercent) {
+      return;
+    }
+
+    saturationPercent_ = saturationPercent;
+    if (enabled_) {
+      renderFrame(millis());
+    }
+  }
+
+  uint8_t saturation() const {
+    return saturationPercent_;
+  }
+
   void setAlbumColors(const String& album, uint32_t color1, uint32_t color2,
                       uint32_t color3, bool hasThirdColor) {
     const uint8_t newColorCount = hasThirdColor ? 3 : 2;
@@ -45,9 +61,6 @@ class LedAlbumLighting {
     }
 
     const uint32_t now = millis();
-    const uint32_t currentColors[3] = {
-        colorForPixel(0, now), colorForPixel(1, now), colorForPixel(2, now)};
-    const bool transitioningFromAlbum = hasAlbum_;
     if (!enabled_) {
       disabledAtMs_ = now;
     }
@@ -62,15 +75,8 @@ class LedAlbumLighting {
     targetColors_[2] = hasThirdColor ? color3 : 0;
     hasAlbum_ = true;
     phaseStartedAtMs_ = now;
-
-    if (transitioningFromAlbum) {
-      for (uint8_t i = 0; i < 3; ++i) {
-        transitionFromColors_[i] = currentColors[i];
-      }
-      colorTransitionStartedAtMs_ = now;
-      colorTransitionActive_ = true;
-    } else {
-      colorTransitionActive_ = false;
+    if (enabled_) {
+      renderFrame(now);
     }
 
     logPalette(activeAlbum_, color1, color2, color3, hasThirdColor);
@@ -94,9 +100,6 @@ class LedAlbumLighting {
 
     const uint32_t disabledDuration = now - disabledAtMs_;
     phaseStartedAtMs_ += disabledDuration;
-    if (colorTransitionActive_) {
-      colorTransitionStartedAtMs_ += disabledDuration;
-    }
     enabled_ = true;
     lastFrameAtMs_ = now - frameIntervalMs_;
     update();
@@ -118,6 +121,7 @@ class LedAlbumLighting {
   static constexpr uint8_t ledCount_ = 30;
   static constexpr uint8_t dataPin_ = 16;
   static constexpr uint8_t defaultBrightnessPercent_ = 50;
+  static constexpr uint8_t defaultSaturationPercent_ = 100;
   static constexpr uint32_t frameIntervalMs_ = 33;
   static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 500;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
@@ -126,17 +130,14 @@ class LedAlbumLighting {
   Adafruit_NeoPixel strip_{ledCount_, dataPin_, NEO_GRB + NEO_KHZ800};
   uint32_t sourceColors_[3] = {defaultColor1_, defaultColor2_, 0};
   uint32_t targetColors_[3] = {defaultColor1_, defaultColor2_, 0};
-  uint32_t transitionFromColors_[3] = {defaultColor1_, defaultColor2_,
-                                       defaultColor1_};
   uint32_t phaseStartedAtMs_ = 0;
-  uint32_t colorTransitionStartedAtMs_ = 0;
   uint32_t lastFrameAtMs_ = 0;
   uint32_t disabledAtMs_ = 0;
   uint8_t paletteColorCount_ = 2;
   uint8_t brightnessPercent_ = defaultBrightnessPercent_;
+  uint8_t saturationPercent_ = defaultSaturationPercent_;
   String activeAlbum_;
   bool hasAlbum_ = false;
-  bool colorTransitionActive_ = false;
   bool enabled_ = true;
 
   static uint8_t brightnessToNeoPixelValue(uint8_t brightnessPercent) {
@@ -147,29 +148,91 @@ class LedAlbumLighting {
   void renderFrame(uint32_t now) {
     lastFrameAtMs_ = now;
     for (uint16_t pixel = 0; pixel < ledCount_; ++pixel) {
-      strip_.setPixelColor(pixel, colorForPixel(pixel, now));
+      strip_.setPixelColor(
+          pixel, saturateColor(colorForPixel(pixel, now)));
     }
     strip_.show();
-
-    if (colorTransitionActive_ &&
-        now - colorTransitionStartedAtMs_ >= LED_COLOR_SWAP_DURATION_MS) {
-      colorTransitionActive_ = false;
-    }
   }
 
   static uint8_t channel(uint32_t color, uint8_t shift) {
     return static_cast<uint8_t>(color >> shift);
   }
 
-  static uint32_t interpolateColor(uint32_t from, uint32_t to, float mix) {
-    const uint8_t red = static_cast<uint8_t>(channel(from, 16) +
-        (static_cast<int>(channel(to, 16)) - channel(from, 16)) * mix);
-    const uint8_t green = static_cast<uint8_t>(channel(from, 8) +
-        (static_cast<int>(channel(to, 8)) - channel(from, 8)) * mix);
-    const uint8_t blue = static_cast<uint8_t>(channel(from, 0) +
-        (static_cast<int>(channel(to, 0)) - channel(from, 0)) * mix);
-    return (static_cast<uint32_t>(red) << 16) |
-           (static_cast<uint32_t>(green) << 8) | blue;
+  uint32_t saturateColor(uint32_t color) const {
+    if (saturationPercent_ == 100) {
+      return color;
+    }
+
+    const float red = channel(color, 16) / 255.0f;
+    const float green = channel(color, 8) / 255.0f;
+    const float blue = channel(color, 0) / 255.0f;
+    const float maximum = red > green
+        ? (red > blue ? red : blue)
+        : (green > blue ? green : blue);
+    const float minimum = red < green
+        ? (red < blue ? red : blue)
+        : (green < blue ? green : blue);
+    const float delta = maximum - minimum;
+    if (delta <= 0.0f) {
+      return color;
+    }
+
+    float hue = 0.0f;
+    if (maximum == red) {
+      hue = (green - blue) / delta;
+      if (hue < 0.0f) {
+        hue += 6.0f;
+      }
+    } else if (maximum == green) {
+      hue = (blue - red) / delta + 2.0f;
+    } else {
+      hue = (red - green) / delta + 4.0f;
+    }
+    hue /= 6.0f;
+
+    float saturation = delta / maximum;
+    saturation *= static_cast<float>(saturationPercent_) / 100.0f;
+    if (saturation > 1.0f) {
+      saturation = 1.0f;
+    }
+
+    const float chroma = maximum * saturation;
+    const float hueSector = hue * 6.0f;
+    const float secondary =
+        chroma * (1.0f - fabsf(fmodf(hueSector, 2.0f) - 1.0f));
+    float adjustedRed = 0.0f;
+    float adjustedGreen = 0.0f;
+    float adjustedBlue = 0.0f;
+
+    if (hueSector < 1.0f) {
+      adjustedRed = chroma;
+      adjustedGreen = secondary;
+    } else if (hueSector < 2.0f) {
+      adjustedRed = secondary;
+      adjustedGreen = chroma;
+    } else if (hueSector < 3.0f) {
+      adjustedGreen = chroma;
+      adjustedBlue = secondary;
+    } else if (hueSector < 4.0f) {
+      adjustedGreen = secondary;
+      adjustedBlue = chroma;
+    } else if (hueSector < 5.0f) {
+      adjustedRed = secondary;
+      adjustedBlue = chroma;
+    } else {
+      adjustedRed = chroma;
+      adjustedBlue = secondary;
+    }
+
+    const float offset = maximum - chroma;
+    const uint8_t outputRed = static_cast<uint8_t>(
+        (adjustedRed + offset) * 255.0f + 0.5f);
+    const uint8_t outputGreen = static_cast<uint8_t>(
+        (adjustedGreen + offset) * 255.0f + 0.5f);
+    const uint8_t outputBlue = static_cast<uint8_t>(
+        (adjustedBlue + offset) * 255.0f + 0.5f);
+    return (static_cast<uint32_t>(outputRed) << 16) |
+           (static_cast<uint32_t>(outputGreen) << 8) | outputBlue;
   }
 
   static void printColor(uint32_t color) {
@@ -205,26 +268,8 @@ class LedAlbumLighting {
         LED_COLOR_SWAP_DURATION_MS * paletteColorCount_;
     const uint32_t cyclePosition = (now - phaseStartedAtMs_) % fullCycleMs_;
     const uint8_t rotation = cyclePosition / LED_COLOR_SWAP_DURATION_MS;
-    const float blend =
-        static_cast<float>(cyclePosition % LED_COLOR_SWAP_DURATION_MS) /
-        LED_COLOR_SWAP_DURATION_MS;
     const uint8_t position = pixel % paletteColorCount_;
     const uint8_t fromIndex = (position + rotation) % paletteColorCount_;
-    const uint8_t toIndex = (fromIndex + 1) % paletteColorCount_;
-    const uint32_t targetColor = interpolateColor(
-        targetColors_[fromIndex], targetColors_[toIndex], blend);
-
-    if (!colorTransitionActive_) {
-      return targetColor;
-    }
-
-    const uint32_t transitionElapsed = now - colorTransitionStartedAtMs_;
-    const float transitionBlend =
-        transitionElapsed >= LED_COLOR_SWAP_DURATION_MS
-            ? 1.0f
-            : static_cast<float>(transitionElapsed) /
-                  LED_COLOR_SWAP_DURATION_MS;
-    return interpolateColor(transitionFromColors_[pixel % 3], targetColor,
-                            transitionBlend);
+    return targetColors_[fromIndex];
   }
 };

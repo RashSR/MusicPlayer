@@ -62,6 +62,15 @@
           </div>
           <span id="ledBrightnessMessage" class="led-status-message"
                 aria-live="polite"></span>
+          <div class="led-saturation-control">
+            <label for="ledSaturationSlider">
+              LED saturation <span id="ledSaturationValue">100</span>%
+            </label>
+            <input id="ledSaturationSlider" type="range" min="0" max="150"
+                   value="100" disabled>
+          </div>
+          <span id="ledSaturationMessage" class="led-status-message"
+                aria-live="polite"></span>
         </div>
       </div>
     </div>

@@ -161,6 +161,25 @@
       opacity: 0.7;
     }
 
+    .led-saturation-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 360px;
+      margin-top: 12px;
+      color: #b3b3b3;
+    }
+
+    .led-saturation-control input {
+      flex: 1;
+      accent-color: #7c3aed;
+    }
+
+    .led-saturation-control input:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
     .led-toggle {
       display: inline-flex;
       align-items: center;
