@@ -7,6 +7,9 @@ let playbackTimer = null;
 let currentTime = 0;
 let songDuration = null;
 let currentSelectionId = 0;
+let pendingPlaybackSelectionId = 0;
+let lastPlaybackSyncAt = 0;
+let playbackControlInProgress = false;
 let volumeUpdateTimer = null;
 let volumeRequestSequence = 0;
 let ledsEnabled = null;
@@ -254,6 +257,7 @@ async function syncDeviceStatus() {
     const ledSequence = ledRequestSequence;
     const brightnessSequence = ledBrightnessRequestSequence;
     const saturationSequence = ledSaturationRequestSequence;
+    const playbackSequence = currentSelectionId;
     try {
         const response = await fetch('/api/status');
         if(!response.ok) {
@@ -264,6 +268,10 @@ async function syncDeviceStatus() {
             return;
         }
         const status = await response.json();
+        if(playbackSequence === currentSelectionId &&
+            pendingPlaybackSelectionId !== playbackSequence) {
+            applyPlaybackStatus(status);
+        }
         if(sequence === volumeRequestSequence &&
             volumeUpdateTimer === null &&
             Number.isInteger(status.volume) &&
@@ -383,7 +391,32 @@ function toggleShuffle() {
     }
     
     syncShuffleUI(mainShuffleBtn, miniShuffleBtn);
+    setShuffleEnabled(isShuffleEnabled);
     console.log('Shuffle:', isShuffleEnabled);
+}
+
+async function setShuffleEnabled(enabled) {
+    try {
+        const response = await fetch('/api/shuffle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({enabled: String(enabled)}),
+        });
+        if(!response.ok) {
+            throw new Error(`Shuffle update failed (HTTP ${response.status})`);
+        }
+        const status = await response.json();
+        isShuffleEnabled = status.shuffle_enabled === true;
+        syncShuffleUI(
+            document.getElementById('shuffleBtn'),
+            document.getElementById('miniShuffleBtn')
+        );
+    } catch(error) {
+        console.error('[MusicPlayer] Shuffle update failed:', error);
+        await syncDeviceStatus();
+    }
 }
 
 function syncShuffleUI(mainShuffleBtn, miniShuffleBtn) {
@@ -405,30 +438,19 @@ function playRandomTrack() {
 }
 
 function playNextTrack() {
-    if(!currentTrack) 
-        return;
-
-    if(isShuffleEnabled){
-        playRandomTrack();
-        return;
+    if(currentTrack) {
+        requestPlaybackControl(
+            `/next?expected_id=${encodeURIComponent(currentTrack.id)}`
+        );
     }
-
-    const currentIndex = getCurrentTrackIndex();
-    let nextIndex = currentIndex + 1;
-    if(nextIndex >= allTracks.length)
-        nextIndex = 0;
-    playTrackAtIndex(nextIndex);
 }
 
 function playPreviousTrack() {
-    if(!currentTrack) 
-        return;
-
-    const currentIndex = getCurrentTrackIndex();
-    let previousIndex = currentIndex - 1;
-    if(previousIndex < 0) 
-        previousIndex = allTracks.length - 1;
-    playTrackAtIndex(previousIndex);
+    if(currentTrack) {
+        requestPlaybackControl(
+            `/previous?expected_id=${encodeURIComponent(currentTrack.id)}`
+        );
+    }
 }
 
 function getCurrentTrackIndex(){
@@ -463,6 +485,7 @@ function playTrackAtIndex(trackIndex) {
 
     clearPlaybackMessage();
     currentTime = 0;
+    lastPlaybackSyncAt = performance.now();
     updateProgressBar();
     updateMiniPlayer(foundTrack, foundAlbum);
     startPlayback();
@@ -477,6 +500,7 @@ function playTrackAtIndex(trackIndex) {
     }
 
     const url = `/api/play-selection?id=${encodeURIComponent(foundTrack.id)}`;
+    pendingPlaybackSelectionId = selectionId;
     console.log('[MusicPlayer] Catalog selection request: sending.');
     sendSelectionRequest(selectionId, url);
 }
@@ -502,13 +526,17 @@ async function sendSelectionRequest(selectionId, url) {
             setPlaybackMessage(`Playback request was rejected (HTTP ${response.status}).`);
         } else {
             setPlaybackMessage('Playback command sent; SD-card file availability is not confirmed.');
-            reportPlaybackState();
         }
     } catch(error) {
         if(currentSelectionId === selectionId) {
             setPlaybackMessage('Could not contact the ESP32; playback command was not confirmed.');
         }
         console.error('[MusicPlayer] Selection request failed:', error);
+    } finally {
+        if(currentSelectionId === selectionId) {
+            pendingPlaybackSelectionId = 0;
+            await syncDeviceStatus();
+        }
     }
 }
 
@@ -531,85 +559,132 @@ function togglePlayback() {
     if(!currentTrack) 
         return;
 
-    const trackIndex = getCurrentTrackIndex();
-    const selectedRow = document.getElementById(`track-${trackIndex}`);
-    const button = document.getElementById('playPauseBtn');
-    const miniButton = document.getElementById('miniPlayBtn');
-
-    if(isPlaying) {
-        clearInterval(playbackTimer);
-        playbackTimer = null;
-        isPlaying = false;
-        button.classList.add('paused');
-        selectedRow?.classList.add('paused');
-        miniButton.innerText = '▶';
-        console.log('[MusicPlayer] Simulated timeline paused.');
-        requestPlaybackControl('/pause');
-    } else {
-        startPlayback();
-        console.log('[MusicPlayer] Simulated timeline resumed.');
-        requestPlaybackControl('/resume');
-    }
+    requestPlaybackControl(isPlaying ? '/pause' : '/resume');
 }
 
 async function requestPlaybackControl(path) {
+    if(playbackControlInProgress) {
+        return;
+    }
+    playbackControlInProgress = true;
     try {
         const response = await fetch(path);
         if(!response.ok) {
             console.error('[MusicPlayer] Playback control failed:',
                 path, response.status);
+            await syncDeviceStatus();
         } else {
-            reportPlaybackState();
+            await syncDeviceStatus();
         }
     } catch(error) {
         console.error('[MusicPlayer] Playback control request failed:',
             path, error);
+    } finally {
+        playbackControlInProgress = false;
     }
 }
 
 function startPlayback() {
     clearInterval(playbackTimer);
     isPlaying = true;
-    document.getElementById('playPauseBtn').classList.remove('paused');
-    document.getElementById(`track-${getCurrentTrackIndex()}`)?.classList.remove('paused');
-    document.getElementById('miniPlayBtn').innerText = '⏸';
-
+    setPlaybackControls();
     playbackTimer = setInterval(() => {
-        currentTime++;
-        updateProgressBar();
-        if(songDuration !== null && currentTime >= songDuration) {
-            clearInterval(playbackTimer);
-            playbackTimer = null;
-            playNextTrack();
-        } else {
-            reportPlaybackState();
+        if(isPlaying && lastPlaybackSyncAt > 0) {
+            currentTime += (performance.now() - lastPlaybackSyncAt) / 1000;
+            lastPlaybackSyncAt = performance.now();
         }
-    }, 1000);
+        updateProgressBar();
+    }, 500);
 }
 
-async function reportPlaybackState() {
-    if(!currentTrack)
-        return;
+function setPlaybackControls() {
+    const trackIndex = getCurrentTrackIndex();
+    const button = document.getElementById('playPauseBtn');
+    const miniButton = document.getElementById('miniPlayBtn');
+    button.classList.toggle('paused', !isPlaying);
+    document.getElementById(`track-${trackIndex}`)?.classList.toggle(
+        'paused', !isPlaying
+    );
+    miniButton.innerText = isPlaying ? '⏸' : '▶';
+}
 
-    const body = new URLSearchParams({
-        elapsed_seconds: String(Math.floor(currentTime)),
-    });
-    try {
-        const response = await fetch('/api/playback-state', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body,
-        });
-        if(!response.ok) {
-            console.error('[MusicPlayer] Playback state update failed:',
-                response.status);
-        }
-    } catch(error) {
-        console.error('[MusicPlayer] Playback state update request failed:',
-            error);
+function renderNowPlaying(track) {
+    const album = songsData.albums.find(item => item.name === track.album);
+    if(!album) {
+        return;
     }
+
+    currentTrack = track;
+    openOnlyThisAlbum(album.name);
+    document.querySelectorAll('.track').forEach(row => {
+        row.classList.remove('active', 'paused');
+    });
+    const trackIndex = getCurrentTrackIndex();
+    const selectedRow = document.getElementById(`track-${trackIndex}`);
+    selectedRow?.classList.add('active');
+    domElements.currentSong.innerText = track.title;
+    domElements.currentAlbum.innerText = album.name;
+    domElements.albumCover.src = `albumCover/${album.cover}`;
+    showCoverAndProgressbar(domElements.albumCover);
+    updateMiniPlayer(track, album);
+}
+
+function applyPlaybackStatus(status) {
+    if(typeof status.shuffle_enabled === 'boolean' &&
+        isShuffleEnabled !== status.shuffle_enabled) {
+        isShuffleEnabled = status.shuffle_enabled;
+        syncShuffleUI(
+            document.getElementById('shuffleBtn'),
+            document.getElementById('miniShuffleBtn')
+        );
+    }
+
+    const songId = Number(status.song_id);
+    const track = Number.isInteger(songId)
+        ? allTracks.find(item => item.id === songId)
+        : null;
+    if(!track) {
+        if(status.song_id === null || status.song_id === undefined) {
+            currentTrack = null;
+            isPlaying = false;
+            currentTime = 0;
+            songDuration = null;
+            clearInterval(playbackTimer);
+            playbackTimer = null;
+            document.querySelectorAll('.track').forEach(row => {
+                row.classList.remove('active', 'paused');
+            });
+            domElements.currentSong.innerText = 'No song selected';
+            domElements.currentAlbum.innerText = 'Choose a track';
+            domElements.albumCover.classList.add('hidden');
+            document.getElementById('progressContainer').classList.add('hidden');
+            document.getElementById('miniPlayer').classList.add('hidden');
+            setPlaybackControls();
+        }
+        return;
+    }
+
+    if(!currentTrack || currentTrack.id !== track.id) {
+        renderNowPlaying(track);
+    }
+    const state = typeof status.playback_state === 'string'
+        ? status.playback_state
+        : (status.playing ? 'playing' : 'stopped');
+    isPlaying = state === 'playing';
+    const reportedElapsed = Number(status.elapsed_seconds);
+    currentTime = Number.isFinite(reportedElapsed) && reportedElapsed >= 0
+        ? reportedElapsed
+        : 0;
+    const reportedDuration = Number(status.duration_seconds);
+    songDuration = Number.isFinite(reportedDuration) && reportedDuration > 0
+        ? reportedDuration
+        : track.duration;
+    lastPlaybackSyncAt = performance.now();
+    setPlaybackControls();
+    if(isPlaying && playbackTimer === null) {
+        startPlayback();
+    }
+    updateProgressBar();
 }
 
 function updateProgressBar() {
@@ -620,6 +695,9 @@ function updateProgressBar() {
     const progress = songDuration === null
         ? 0
         : Math.min(currentTime / songDuration * 100, 100);
+    const displayTime = songDuration === null
+        ? currentTime
+        : Math.min(currentTime, songDuration);
 
     if(bar) 
         bar.style.width = `${progress}%`;
@@ -630,7 +708,7 @@ function updateProgressBar() {
     const durationText = songDuration === null
         ? '--:--'
         : formatTime(songDuration);
-    const timeText = `${formatTime(currentTime)} / ${durationText}`;
+    const timeText = `${formatTime(displayTime)} / ${durationText}`;
 
     if(timeDisplay)
         timeDisplay.textContent = timeText;
@@ -691,6 +769,7 @@ async function loadSongs() {
         `;
         container.appendChild(albumDiv);
     });
+    await syncDeviceStatus();
 }
 
 function createTrackHTML(track, index, catalogIndex) {
@@ -759,6 +838,11 @@ window.addEventListener('DOMContentLoaded', () => {
         'change', () => scheduleLedSaturationUpdate(true));
     syncDeviceStatus();
     setInterval(syncDeviceStatus, 5000);
+    document.addEventListener('visibilitychange', () => {
+        if(document.visibilityState === 'visible') {
+            syncDeviceStatus();
+        }
+    });
 });
 
 window.addEventListener('error', event => {

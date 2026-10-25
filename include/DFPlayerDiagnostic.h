@@ -189,6 +189,15 @@ class DFPlayerDiagnostic {
     return lastResponseMs_;
   }
 
+  bool takeTrackFinishedEvent(uint16_t& trackNumber) {
+    if (!trackFinishedEvent_) {
+      return false;
+    }
+    trackNumber = finishedTrackNumber_;
+    trackFinishedEvent_ = false;
+    return true;
+  }
+
   const char* sdStatus() const {
     return sdStatus_;
   }
@@ -240,6 +249,8 @@ class DFPlayerDiagnostic {
   bool hasValidResponse_ = false;
   bool hasTrackCount_ = false;
   bool playerInitialized_ = false;
+  bool trackFinishedEvent_ = false;
+  uint16_t finishedTrackNumber_ = 0;
   const char* sdStatus_ = "unknown";
   const char* playbackStatus_ = "unknown";
 
@@ -391,6 +402,15 @@ class DFPlayerDiagnostic {
     }
     if (command == 0x3C) {
       Serial.println("[DFPlayer] Module is online.");
+      frameLength_ = 0;
+      return;
+    }
+
+    if (command == 0x3D) {
+      finishedTrackNumber_ = parameter;
+      trackFinishedEvent_ = true;
+      Serial.print("[DFPlayer] Track-finished event: ");
+      Serial.println(finishedTrackNumber_);
       frameLength_ = 0;
       return;
     }

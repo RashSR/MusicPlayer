@@ -29,10 +29,12 @@ bool hasRecentPlaybackRequest = false;
 uint32_t nowPlayingSongId = 0;
 String nowPlayingSongTitle;
 String nowPlayingAlbum;
-uint32_t nowPlayingElapsedSeconds = 0;
 uint32_t nowPlayingDurationSeconds = 0;
+uint32_t accumulatedPlaybackMs = 0;
+uint32_t playbackStartedAtMs = 0;
 bool hasNowPlayingSong = false;
 bool hasNowPlayingDuration = false;
+bool shuffleEnabled = false;
 enum class PlaybackState : uint8_t {
   Unknown,
   Playing,
@@ -42,6 +44,18 @@ enum class PlaybackState : uint8_t {
 PlaybackState playbackState = PlaybackState::Unknown;
 
 void updatePlaybackState(PlaybackState state) {
+  const uint32_t now = millis();
+  if (playbackState == PlaybackState::Playing &&
+      state != PlaybackState::Playing) {
+    accumulatedPlaybackMs += static_cast<uint32_t>(now - playbackStartedAtMs);
+  }
+  if (state == PlaybackState::Playing &&
+      playbackState != PlaybackState::Playing) {
+    playbackStartedAtMs = now;
+  }
+  if (state == PlaybackState::Stopped) {
+    accumulatedPlaybackMs = 0;
+  }
   playbackState = state;
   switch (state) {
     case PlaybackState::Playing:
@@ -61,6 +75,24 @@ void updatePlaybackState(PlaybackState state) {
           LedAlbumLighting::PlaybackMode::Idle);
       break;
   }
+}
+
+uint32_t elapsedPlaybackMilliseconds() {
+  uint32_t elapsedMs = accumulatedPlaybackMs;
+  if (playbackState == PlaybackState::Playing) {
+    elapsedMs += static_cast<uint32_t>(millis() - playbackStartedAtMs);
+  }
+  if (hasNowPlayingDuration) {
+    const uint32_t durationMs = nowPlayingDurationSeconds * 1000UL;
+    if (elapsedMs > durationMs) {
+      elapsedMs = durationMs;
+    }
+  }
+  return elapsedMs;
+}
+
+uint32_t elapsedPlaybackSeconds() {
+  return elapsedPlaybackMilliseconds() / 1000UL;
 }
 
 const char* playbackDisplay() {
@@ -437,24 +469,15 @@ enum class PlaybackRequestResult {
 };
 
 void setNowPlayingSong(const CatalogSong& selection) {
+  updatePlaybackState(PlaybackState::Unknown);
   nowPlayingSongId = selection.id;
   nowPlayingSongTitle = selection.title;
   nowPlayingAlbum = selection.album;
-  nowPlayingElapsedSeconds = 0;
   nowPlayingDurationSeconds = selection.durationSeconds;
+  accumulatedPlaybackMs = 0;
+  playbackStartedAtMs = 0;
   hasNowPlayingSong = true;
   hasNowPlayingDuration = selection.durationSeconds > 0;
-  updatePlaybackState(PlaybackState::Unknown);
-}
-
-void clearNowPlayingSong() {
-  nowPlayingSongId = 0;
-  nowPlayingSongTitle = "";
-  nowPlayingAlbum = "";
-  nowPlayingElapsedSeconds = 0;
-  nowPlayingDurationSeconds = 0;
-  hasNowPlayingSong = false;
-  hasNowPlayingDuration = false;
 }
 
 PlaybackRequestResult playCatalogSong(uint32_t catalogId) {
@@ -495,6 +518,134 @@ PlaybackRequestResult playCatalogSong(uint32_t catalogId) {
   lastPlaybackRequestId = catalogId;
   lastPlaybackRequestAtMs = now;
   return PlaybackRequestResult::Sent;
+}
+
+CatalogLookupResult findAdjacentCatalogSong(uint32_t currentId,
+                                            int direction,
+                                            bool randomize,
+                                            CatalogSong& selection) {
+  File file = LittleFS.open("/songs.json", "r");
+  if (!file) {
+    Serial.println("[Catalog] Could not open /songs.json for navigation.");
+    return CatalogLookupResult::Unavailable;
+  }
+
+  DynamicJsonDocument catalog(32768);
+  const DeserializationError error = deserializeJson(catalog, file);
+  file.close();
+  if (error) {
+    Serial.print("[Catalog] Could not parse /songs.json for navigation: ");
+    Serial.println(error.c_str());
+    return CatalogLookupResult::Invalid;
+  }
+
+  const JsonArrayConst albums = catalog["albums"].as<JsonArrayConst>();
+  if (albums.isNull()) {
+    Serial.println("[Catalog] /songs.json has no albums array.");
+    return CatalogLookupResult::Invalid;
+  }
+
+  uint32_t currentIndex = 0;
+  uint32_t trackCount = 0;
+  bool foundCurrent = false;
+  for (JsonObjectConst album : albums) {
+    const JsonArrayConst tracks = album["tracks"].as<JsonArrayConst>();
+    if (tracks.isNull()) {
+      return CatalogLookupResult::Invalid;
+    }
+    for (JsonObjectConst song : tracks) {
+      const JsonVariantConst idValue = song["id"];
+      if (!idValue.is<uint32_t>() || idValue.as<uint32_t>() == 0) {
+        return CatalogLookupResult::Invalid;
+      }
+      if (idValue.as<uint32_t>() == currentId) {
+        currentIndex = trackCount;
+        foundCurrent = true;
+      }
+      ++trackCount;
+    }
+  }
+  if (!foundCurrent || trackCount == 0) {
+    return CatalogLookupResult::NotFound;
+  }
+
+  uint32_t targetIndex = 0;
+  if (randomize && trackCount > 1) {
+    const uint32_t offset =
+        static_cast<uint32_t>(random(1, static_cast<long>(trackCount)));
+    targetIndex = (currentIndex + offset) % trackCount;
+  } else if (direction >= 0) {
+    targetIndex = (currentIndex + 1) % trackCount;
+  } else {
+    targetIndex = (currentIndex + trackCount - 1) % trackCount;
+  }
+
+  uint32_t targetId = 0;
+  uint32_t index = 0;
+  for (JsonObjectConst album : albums) {
+    for (JsonObjectConst song : album["tracks"].as<JsonArrayConst>()) {
+      if (index++ == targetIndex) {
+        targetId = song["id"].as<uint32_t>();
+        break;
+      }
+    }
+    if (targetId != 0) {
+      break;
+    }
+  }
+  if (targetId == 0) {
+    return CatalogLookupResult::Invalid;
+  }
+  return findCatalogSong(targetId, selection);
+}
+
+PlaybackRequestResult playAdjacentCatalogSong(int direction,
+                                              bool randomize) {
+  if (!hasNowPlayingSong) {
+    return PlaybackRequestResult::NotFound;
+  }
+  CatalogSong selection;
+  switch (findAdjacentCatalogSong(nowPlayingSongId, direction, randomize,
+                                  selection)) {
+    case CatalogLookupResult::NotFound:
+      return PlaybackRequestResult::NotFound;
+    case CatalogLookupResult::DuplicateId:
+      return PlaybackRequestResult::DuplicateCatalogId;
+    case CatalogLookupResult::Invalid:
+      return PlaybackRequestResult::InvalidCatalog;
+    case CatalogLookupResult::Unavailable:
+      return PlaybackRequestResult::CatalogUnavailable;
+    case CatalogLookupResult::Found:
+      return playCatalogSong(selection.id);
+  }
+  return PlaybackRequestResult::InvalidCatalog;
+}
+
+void updatePlaybackController() {
+  uint16_t finishedTrackNumber = 0;
+  const bool hasFinishedEvent =
+      dfPlayerDiagnostic.takeTrackFinishedEvent(finishedTrackNumber);
+  const bool matchingFinishedEvent =
+      hasFinishedEvent && hasNowPlayingSong &&
+      (finishedTrackNumber == 0 || finishedTrackNumber == nowPlayingSongId);
+
+  const bool durationReached =
+      playbackState == PlaybackState::Playing && hasNowPlayingDuration &&
+      elapsedPlaybackMilliseconds() >= nowPlayingDurationSeconds * 1000UL;
+  if (playbackState != PlaybackState::Playing ||
+      (!durationReached && !matchingFinishedEvent)) {
+    return;
+  }
+
+  Serial.println("[MusicPlayer] Advancing after track completion.");
+  const PlaybackRequestResult result =
+      playAdjacentCatalogSong(1, shuffleEnabled);
+  if (result != PlaybackRequestResult::Sent &&
+      result != PlaybackRequestResult::DuplicateRequest) {
+    Serial.println("[MusicPlayer] Could not advance; stopping playback.");
+    dfPlayerDiagnostic.stop();
+    updatePlaybackState(PlaybackState::Stopped);
+  }
 }
 
 void sendPlaybackRequestResponse(PlaybackRequestResult result) {
@@ -571,24 +722,35 @@ void handleResume(){
   sendHttpResponse(200, "text/plain", "Resumed");
 }
 
+bool matchesExpectedTrack() {
+  if (!server.hasArg("expected_id")) {
+    return true;
+  }
+
+  uint32_t expectedId = 0;
+  if (!parsePositiveDecimal(server.arg("expected_id"), 9999, expectedId)) {
+    sendHttpResponse(400, "text/plain", "Invalid expected track ID");
+    return false;
+  }
+  if (!hasNowPlayingSong || expectedId != nowPlayingSongId) {
+    sendHttpResponse(409, "text/plain", "Playback track changed");
+    return false;
+  }
+  return true;
+}
+
 void handleNext(){
-  if (!dfPlayerDiagnostic.next()) {
-    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+  if (!matchesExpectedTrack()) {
     return;
   }
-  clearNowPlayingSong();
-  updatePlaybackState(PlaybackState::Playing);
-  sendHttpResponse(200, "text/plain", "Next");
+  sendPlaybackRequestResponse(playAdjacentCatalogSong(1, shuffleEnabled));
 }
 
 void handlePrevious(){
-  if (!dfPlayerDiagnostic.previous()) {
-    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+  if (!matchesExpectedTrack()) {
     return;
   }
-  clearNowPlayingSong();
-  updatePlaybackState(PlaybackState::Playing);
-  sendHttpResponse(200, "text/plain", "Previous");
+  sendPlaybackRequestResponse(playAdjacentCatalogSong(-1, false));
 }
 
 void handleStop(){
@@ -596,34 +758,33 @@ void handleStop(){
     sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
     return;
   }
-  nowPlayingElapsedSeconds = 0;
   updatePlaybackState(PlaybackState::Stopped);
   sendHttpResponse(200, "text/plain", "Stopped");
 }
 
 void handlePlaybackState() {
-  if (!hasNowPlayingSong) {
-    sendHttpResponse(409, "text/plain", "No catalog song is selected");
+  sendHttpResponse(410, "text/plain",
+                   "Playback time is maintained by the ESP32");
+}
+
+void handleSetShuffle() {
+  if (!server.hasArg("enabled")) {
+    sendHttpResponse(400, "text/plain", "Missing shuffle state");
     return;
   }
-  if (!server.hasArg("elapsed_seconds")) {
-    sendHttpResponse(400, "text/plain", "Missing elapsed playback state");
+  const String requestedState = server.arg("enabled");
+  if (requestedState != "true" && requestedState != "false") {
+    sendHttpResponse(400, "text/plain",
+                     "Invalid shuffle state: expected true or false");
     return;
   }
 
-  uint32_t elapsedSeconds = 0;
-  if (!parseUnsignedDecimal(server.arg("elapsed_seconds"), 86400,
-                            elapsedSeconds)) {
-    sendHttpResponse(400, "text/plain", "Invalid elapsed playback state");
-    return;
-  }
-
-  nowPlayingElapsedSeconds = elapsedSeconds;
-  if (hasNowPlayingDuration &&
-      nowPlayingElapsedSeconds > nowPlayingDurationSeconds) {
-    nowPlayingElapsedSeconds = nowPlayingDurationSeconds;
-  }
-  sendHttpResponse(204, "text/plain", "");
+  shuffleEnabled = requestedState == "true";
+  StaticJsonDocument<32> response;
+  response["shuffle_enabled"] = shuffleEnabled;
+  String body;
+  serializeJson(response, body);
+  sendHttpResponse(200, "application/json", body);
 }
 
 void handleSetVolume() {
@@ -766,20 +927,21 @@ void handleStatus(){
   response["dfplayer_playback"] = dfPlayerDiagnostic.playbackStatus();
 
   if (hasNowPlayingSong) {
+    const uint32_t elapsedSeconds = elapsedPlaybackSeconds();
     response["song_id"] = nowPlayingSongId;
+    response["current_track_id"] = nowPlayingSongId;
     response["song_title"] = nowPlayingSongTitle;
     response["album"] = nowPlayingAlbum;
-    response["elapsed_seconds"] = nowPlayingElapsedSeconds;
+    response["elapsed_seconds"] = elapsedSeconds;
     char elapsedDisplay[16];
     char progressDisplay[40];
-    formatPlaybackTime(nowPlayingElapsedSeconds, elapsedDisplay,
-                       sizeof(elapsedDisplay));
+    formatPlaybackTime(elapsedSeconds, elapsedDisplay, sizeof(elapsedDisplay));
     if (hasNowPlayingDuration && nowPlayingDurationSeconds > 0) {
       response["duration_seconds"] = nowPlayingDurationSeconds;
       const uint32_t clampedElapsed =
-          nowPlayingElapsedSeconds > nowPlayingDurationSeconds
+          elapsedSeconds > nowPlayingDurationSeconds
               ? nowPlayingDurationSeconds
-              : nowPlayingElapsedSeconds;
+              : elapsedSeconds;
       const float progress =
           static_cast<float>(clampedElapsed) * 100.0f /
           nowPlayingDurationSeconds;
@@ -806,6 +968,7 @@ void handleStatus(){
     response["progress_display"] = progressDisplay;
   } else {
     response["song_id"] = nullptr;
+    response["current_track_id"] = nullptr;
     response["song_title"] = nullptr;
     response["album"] = nullptr;
     response["elapsed_seconds"] = nullptr;
@@ -815,7 +978,23 @@ void handleStatus(){
     response["progress_display"] = "—";
   }
   response["playing"] = playbackState == PlaybackState::Playing;
+  switch (playbackState) {
+    case PlaybackState::Playing:
+      response["playback_state"] = "playing";
+      break;
+    case PlaybackState::Paused:
+      response["playback_state"] = "paused";
+      break;
+    case PlaybackState::Stopped:
+      response["playback_state"] = "stopped";
+      break;
+    case PlaybackState::Unknown:
+    default:
+      response["playback_state"] = "unknown";
+      break;
+  }
   response["playback_display"] = playbackDisplay();
+  response["shuffle_enabled"] = shuffleEnabled;
 
   server.sendHeader("Cache-Control", "no-store");
   String body;
@@ -850,6 +1029,7 @@ void setupRoutes(){
   server.on("/api/leds/saturation", HTTP_POST, handleSetLedSaturation);
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/playback-state", HTTP_POST, handlePlaybackState);
+  server.on("/api/shuffle", HTTP_POST, handleSetShuffle);
   server.onNotFound(handleNotFound);
 }
 
@@ -915,22 +1095,19 @@ void processSerialCommand() {
     if (!dfPlayerDiagnostic.stop()) {
       Serial.println("[DFPlayer] Cannot stop: player is not initialized.");
     } else {
-      nowPlayingElapsedSeconds = 0;
       updatePlaybackState(PlaybackState::Stopped);
     }
   } else if (strcmp(serialCommand, "next") == 0) {
-    if (!dfPlayerDiagnostic.next()) {
-      Serial.println("[DFPlayer] Cannot skip: player is not initialized.");
-    } else {
-      clearNowPlayingSong();
-      updatePlaybackState(PlaybackState::Playing);
+    const PlaybackRequestResult result =
+        playAdjacentCatalogSong(1, shuffleEnabled);
+    if (result != PlaybackRequestResult::Sent) {
+      Serial.println("[DFPlayer] Could not select the next catalog track.");
     }
   } else if (strcmp(serialCommand, "prev") == 0) {
-    if (!dfPlayerDiagnostic.previous()) {
-      Serial.println("[DFPlayer] Cannot go back: player is not initialized.");
-    } else {
-      clearNowPlayingSong();
-      updatePlaybackState(PlaybackState::Playing);
+    const PlaybackRequestResult result =
+        playAdjacentCatalogSong(-1, false);
+    if (result != PlaybackRequestResult::Sent) {
+      Serial.println("[DFPlayer] Could not select the previous catalog track.");
     }
   } else if (serialCommandLength > 0) {
     Serial.print("[DFPlayer] Unknown command: ");
@@ -969,6 +1146,7 @@ void startWebServer() {
 void setup() {
   Serial.begin(115200);
   delay(500);
+  randomSeed(esp_random());
   dfPlayerDiagnostic.begin();
   printSerialHelp();
   ledAlbumLighting.begin();
@@ -998,7 +1176,7 @@ void loop() {
   updateSerialCommands();
   ledAlbumLighting.update();
   if (!wifiConfigured) {
-    delay(1);
+    updatePlaybackController();
     return;
   }
 
@@ -1032,4 +1210,5 @@ void loop() {
   if (webServerStarted && connectedToWiFi) {
     server.handleClient();
   }
+  updatePlaybackController();
 }
