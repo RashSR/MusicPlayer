@@ -41,9 +41,9 @@ class LedAlbumLighting {
     sourceColors_[0] = color1;
     sourceColors_[1] = color2;
     sourceColors_[2] = hasThirdColor ? color3 : 0;
-    targetColors_[0] = correctDarkColor(color1);
-    targetColors_[1] = correctDarkColor(color2);
-    targetColors_[2] = hasThirdColor ? correctDarkColor(color3) : 0;
+    targetColors_[0] = color1;
+    targetColors_[1] = color2;
+    targetColors_[2] = hasThirdColor ? color3 : 0;
     hasAlbum_ = true;
     phaseStartedAtMs_ = now;
 
@@ -114,16 +114,12 @@ class LedAlbumLighting {
   static constexpr uint8_t brightness_ = 20;
   static constexpr uint32_t frameIntervalMs_ = 33;
   static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 500;
-  static constexpr float DARK_COLOR_LUMINANCE_THRESHOLD = 90.0f;
-  static constexpr float DARK_COLOR_TARGET_LUMINANCE = 90.0f;
-  static constexpr float DARK_COLOR_MAX_GAIN = 1.35f;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
   static constexpr uint32_t defaultColor2_ = 0xA9C7AE;
 
   Adafruit_NeoPixel strip_{ledCount_, dataPin_, NEO_GRB + NEO_KHZ800};
   uint32_t sourceColors_[3] = {defaultColor1_, defaultColor2_, 0};
-  uint32_t targetColors_[3] = {
-      correctDarkColor(defaultColor1_), correctDarkColor(defaultColor2_), 0};
+  uint32_t targetColors_[3] = {defaultColor1_, defaultColor2_, 0};
   uint32_t transitionFromColors_[3] = {defaultColor1_, defaultColor2_,
                                        defaultColor1_};
   uint32_t phaseStartedAtMs_ = 0;
@@ -138,32 +134,6 @@ class LedAlbumLighting {
 
   static uint8_t channel(uint32_t color, uint8_t shift) {
     return static_cast<uint8_t>(color >> shift);
-  }
-
-  static uint32_t correctDarkColor(uint32_t color) {
-    const float red = channel(color, 16);
-    const float green = channel(color, 8);
-    const float blue = channel(color, 0);
-    const float luminance = 0.2126f * red + 0.7152f * green + 0.0722f * blue;
-    if (luminance <= 0.0f || luminance >= DARK_COLOR_LUMINANCE_THRESHOLD) {
-      return color;
-    }
-
-    float gain = DARK_COLOR_TARGET_LUMINANCE / luminance;
-    if (gain > DARK_COLOR_MAX_GAIN) {
-      gain = DARK_COLOR_MAX_GAIN;
-    }
-    const float maximumChannel = red > green
-        ? (red > blue ? red : blue)
-        : (green > blue ? green : blue);
-    if (maximumChannel > 0.0f && gain > 255.0f / maximumChannel) {
-      gain = 255.0f / maximumChannel;
-    }
-    const uint8_t correctedRed = static_cast<uint8_t>(red * gain + 0.5f);
-    const uint8_t correctedGreen = static_cast<uint8_t>(green * gain + 0.5f);
-    const uint8_t correctedBlue = static_cast<uint8_t>(blue * gain + 0.5f);
-    return (static_cast<uint32_t>(correctedRed) << 16) |
-           (static_cast<uint32_t>(correctedGreen) << 8) | correctedBlue;
   }
 
   static uint32_t interpolateColor(uint32_t from, uint32_t to, float mix) {

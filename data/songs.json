@@ -218,7 +218,7 @@
     {
       "name": "Midnights",
       "cover": "midnights.jpg",
-      "ledColors": ["#192B58", "#7778B5"],
+      "ledColors": ["#252C62", "#8B8ED5"],
       "tracks": [
         { "id": 1001, "title": "Lavender Haze" },
         { "id": 1002, "title": "Maroon" },
