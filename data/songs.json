@@ -24,7 +24,7 @@
     {
       "name": "Fearless",
       "cover": "fearless.jpg",
-      "ledColors": ["#B87900", "#FFD000"],
+      "ledColors": ["#FFB900", "#D66A12", "#8C390F"],
       "tracks": [
         { "id": 201, "title": "Fearless", "duration": 243 },
         { "id": 202, "title": "Fifteen", "duration": 295 },
@@ -49,7 +49,7 @@
     {
       "name": "Speak Now",
       "cover": "speak_now.jpg",
-      "ledColors": ["#370078", "#8300D9", "#29004F"],
+      "ledColors": ["#6500D8", "#D00085", "#180060"],
       "tracks": [
         { "id": 301, "title": "Mine", "duration": null },
         { "id": 302, "title": "Sparks Fly", "duration": null },
