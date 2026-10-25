@@ -24,7 +24,7 @@
     {
       "name": "Fearless",
       "cover": "fearless.jpg",
-      "ledColors": ["#C58B20", "#E6BC52"],
+      "ledColors": ["#B87900", "#FFD000"],
       "tracks": [
         { "id": 201, "title": "Fearless", "duration": 243 },
         { "id": 202, "title": "Fifteen", "duration": 295 },
@@ -49,7 +49,7 @@
     {
       "name": "Speak Now",
       "cover": "speak_now.jpg",
-      "ledColors": ["#512078", "#9250C8"],
+      "ledColors": ["#370078", "#8300D9", "#29004F"],
       "tracks": [
         { "id": 301, "title": "Mine", "duration": null },
         { "id": 302, "title": "Sparks Fly", "duration": null },
@@ -73,7 +73,7 @@
     {
       "name": "Red",
       "cover": "red.jpg",
-      "ledColors": ["#A51C30", "#6E1025", "#E02932"],
+      "ledColors": ["#C40008", "#700000", "#FF3900"],
       "tracks": [
         { "id": 401, "title": "State of Grace", "duration": null },
         { "id": 402, "title": "Red", "duration": null },
@@ -123,7 +123,7 @@
     {
       "name": "Reputation",
       "cover": "reputation.jpg",
-      "ledColors": ["#303035", "#96969F"],
+      "ledColors": ["#090B12", "#263D42", "#687C84"],
       "tracks": [
         { "id": 601, "title": "…Ready for It?", "duration": null },
         { "id": 602, "title": "End Game", "duration": null },
@@ -170,7 +170,7 @@
     {
       "name": "Folklore",
       "cover": "folklore.jpg",
-      "ledColors": ["#454D52", "#939B9D"],
+      "ledColors": ["#202E38", "#526873"],
       "tracks": [
         { "id": 801, "title": "The 1", "duration": 210 },
         { "id": 802, "title": "Cardigan", "duration": 240 },
@@ -218,7 +218,7 @@
     {
       "name": "Midnights",
       "cover": "midnights.jpg",
-      "ledColors": ["#172B64", "#345AC4"],
+      "ledColors": ["#071344", "#0878D8", "#4930A8"],
       "tracks": [
         { "id": 1001, "title": "Lavender Haze", "duration": 202 },
         { "id": 1002, "title": "Maroon", "duration": 218 },
@@ -247,7 +247,7 @@
     {
       "name": "The Tortured Poetes Department",
       "cover": "tortured_poets_department.jpg",
-      "ledColors": ["#4B4744", "#A89C8B"],
+      "ledColors": ["#30251C", "#80664A"],
       "tracks": [
         { "id": 1101, "title": "Fortnight", "duration": 229 },
         { "id": 1102, "title": "The Tortured Poets Department", "duration": 293 },
