@@ -121,6 +121,20 @@
       flex-wrap: wrap;
     }
 
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 360px;
+      margin-top: 16px;
+      color: #b3b3b3;
+    }
+
+    .volume-control input {
+      flex: 1;
+      accent-color: #7c3aed;
+    }
+
     .hidden{
       display: none;
     }

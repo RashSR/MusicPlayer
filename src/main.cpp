@@ -591,6 +591,31 @@ void handlePlaybackState() {
   sendHttpResponse(204, "text/plain", "");
 }
 
+void handleSetVolume() {
+  server.sendHeader("Cache-Control", "no-store");
+  if (!server.hasArg("volume")) {
+    sendHttpResponse(400, "text/plain", "Missing volume");
+    return;
+  }
+
+  uint32_t requestedVolume = 0;
+  if (!parseUnsignedDecimal(server.arg("volume"), 30, requestedVolume)) {
+    sendHttpResponse(400, "text/plain",
+                     "Invalid volume: expected a decimal integer from 0 to 30");
+    return;
+  }
+  if (!dfPlayerDiagnostic.setVolume(static_cast<uint8_t>(requestedVolume))) {
+    sendHttpResponse(503, "text/plain", "DFPlayer is not initialized");
+    return;
+  }
+
+  StaticJsonDocument<32> response;
+  response["volume"] = requestedVolume;
+  String body;
+  serializeJson(response, body);
+  sendHttpResponse(200, "application/json", body);
+}
+
 void handleStatus(){
   const IPAddress ip = WiFi.localIP();
   const uint64_t uptimeSeconds = uptimeMilliseconds / 1000ULL;
@@ -611,6 +636,11 @@ void handleStatus(){
   response["wifi_rssi"] = WiFi.RSSI();
   response["free_heap"] = static_cast<unsigned long>(ESP.getFreeHeap());
   response["dfplayer_uart"] = dfPlayerDiagnostic.connectionStatus();
+  if (dfPlayerDiagnostic.volume() >= 0) {
+    response["volume"] = dfPlayerDiagnostic.volume();
+  } else {
+    response["volume"] = nullptr;
+  }
   response["dfplayer_last_response_ms"] =
       static_cast<unsigned long>(dfPlayerDiagnostic.lastResponseMs());
   response["dfplayer_sd"] = dfPlayerDiagnostic.sdStatus();
@@ -700,6 +730,7 @@ void setupRoutes(){
   server.on("/next", handleNext);
   server.on("/previous", handlePrevious);
   server.on("/stop", handleStop);
+  server.on("/api/volume", HTTP_GET, handleSetVolume);
   server.on("/api/status", HTTP_GET, handleStatus);
   server.on("/api/playback-state", HTTP_POST, handlePlaybackState);
   server.onNotFound(handleNotFound);
@@ -709,7 +740,7 @@ void printSerialHelp() {
   Serial.println("[DFPlayer] Serial commands (end each with Enter):");
   Serial.println("  status  - print cached status and query the module");
   Serial.println("  init    - reinitialize the DFPlayer library");
-  Serial.println("  volume  - set volume to 15 (range 0-30)");
+  Serial.println("  volume  - set volume to 8 (range 0-30)");
   Serial.println("  play <id> - play catalog ID, e.g. play 702");
   Serial.println("  pause   - pause playback");
   Serial.println("  resume  - resume playback");
@@ -727,7 +758,7 @@ void processSerialCommand() {
   } else if (strcmp(serialCommand, "init") == 0) {
     dfPlayerDiagnostic.initialize();
   } else if (strcmp(serialCommand, "volume") == 0) {
-    if (!dfPlayerDiagnostic.setVolume(15)) {
+    if (!dfPlayerDiagnostic.setVolume(8)) {
       Serial.println("[DFPlayer] Cannot set volume: player is not initialized.");
     }
   } else if (strcmp(serialCommand, "play") == 0) {

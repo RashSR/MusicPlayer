@@ -84,6 +84,10 @@ class DFPlayerDiagnostic {
     return true;
   }
 
+  int8_t volume() const {
+    return volume_;
+  }
+
   bool pause() {
     if (!playerInitialized_) {
       return false;
@@ -243,7 +247,7 @@ class DFPlayerDiagnostic {
     playerInitialized_ = player_.begin(serial_, false, false);
     if (playerInitialized_) {
       Serial.println("[DFPlayer] Command interface ready; checking module presence via UART.");
-      setVolume(15);
+      setVolume(8);
     } else {
       Serial.println("[DFPlayer] DFRobotDFPlayerMini command interface initialization failed.");
     }

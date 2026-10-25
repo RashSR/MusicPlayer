@@ -7,6 +7,8 @@ let playbackTimer = null;
 let currentTime = 0;
 let songDuration = 180;
 let currentSelectionId = 0;
+let volumeUpdateTimer = null;
+let volumeRequestSequence = 0;
 
 const domElements = {
     currentSong: document.getElementById('currentSong'),
@@ -15,7 +17,68 @@ const domElements = {
     albumCover: document.getElementById('albumCover'),
     progressFill: document.querySelector('.progress-fill'),
     timeDisplay: document.querySelector('.time-display'),
+    volumeSlider: document.getElementById('volumeSlider'),
+    volumeValue: document.getElementById('volumeValue'),
 };
+
+function updateVolumeDisplay(volume) {
+    domElements.volumeSlider.value = String(volume);
+    domElements.volumeValue.textContent = String(volume);
+}
+
+async function sendVolumeUpdate(volume, sequence) {
+    try {
+        const response = await fetch(`/api/volume?volume=${encodeURIComponent(volume)}`);
+        if(!response.ok) {
+            console.error('[MusicPlayer] Volume update failed:', response.status);
+            return;
+        }
+        const status = await response.json();
+        if(sequence === volumeRequestSequence &&
+            Number.isInteger(status.volume) &&
+            status.volume >= 0 && status.volume <= 30) {
+            updateVolumeDisplay(status.volume);
+        }
+    } catch(error) {
+        console.error('[MusicPlayer] Volume update request failed:', error);
+    }
+}
+
+function scheduleVolumeUpdate(immediate = false) {
+    const volume = Number(domElements.volumeSlider.value);
+    const sequence = ++volumeRequestSequence;
+    domElements.volumeValue.textContent = String(volume);
+    clearTimeout(volumeUpdateTimer);
+    if(immediate) {
+        volumeUpdateTimer = null;
+        sendVolumeUpdate(volume, sequence);
+    } else {
+        volumeUpdateTimer = setTimeout(() => {
+            volumeUpdateTimer = null;
+            sendVolumeUpdate(volume, sequence);
+        }, 150);
+    }
+}
+
+async function syncVolumeFromStatus() {
+    const sequence = volumeRequestSequence;
+    try {
+        const response = await fetch('/api/status');
+        if(!response.ok) {
+            console.error('[MusicPlayer] Status request failed:', response.status);
+            return;
+        }
+        const status = await response.json();
+        if(sequence === volumeRequestSequence &&
+            volumeUpdateTimer === null &&
+            Number.isInteger(status.volume) &&
+            status.volume >= 0 && status.volume <= 30) {
+            updateVolumeDisplay(status.volume);
+        }
+    } catch(error) {
+        console.error('[MusicPlayer] Status request failed:', error);
+    }
+}
 
 function sendCommand(command) {
     console.log('Sending command:', command);
@@ -397,6 +460,10 @@ function updateMiniPlayer(track, album) {
 
 window.addEventListener('DOMContentLoaded', () => {
     loadSongs();
+    domElements.volumeSlider.addEventListener('input', () => scheduleVolumeUpdate());
+    domElements.volumeSlider.addEventListener('change', () => scheduleVolumeUpdate(true));
+    syncVolumeFromStatus();
+    setInterval(syncVolumeFromStatus, 5000);
 });
 
 window.addEventListener('error', event => {
