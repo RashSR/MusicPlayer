@@ -57,6 +57,8 @@ void updatePlaybackState(PlaybackState state) {
           LedAlbumLighting::PlaybackMode::Stopped);
       break;
     case PlaybackState::Unknown:
+      ledAlbumLighting.setPlaybackMode(
+          LedAlbumLighting::PlaybackMode::Idle);
       break;
   }
 }

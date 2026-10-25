@@ -6,6 +6,7 @@
 class LedAlbumLighting {
  public:
   enum class PlaybackMode : uint8_t {
+    Idle,
     Playing,
     Paused,
     Stopped
@@ -18,7 +19,7 @@ class LedAlbumLighting {
     const uint32_t now = millis();
     phaseStartedAtMs_ = now;
     clockFrozenAtMs_ = now;
-    clearStrip();
+    renderFrame(now);
   }
 
   void setBrightness(uint8_t brightnessPercent) {
@@ -28,7 +29,7 @@ class LedAlbumLighting {
 
     brightnessPercent_ = brightnessPercent;
     strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
-    if (enabled_ && playbackMode_ != PlaybackMode::Stopped) {
+    if (enabled_) {
       renderFrame(animationTime(millis()));
     }
   }
@@ -44,7 +45,7 @@ class LedAlbumLighting {
     }
 
     saturationPercent_ = saturationPercent;
-    if (enabled_ && playbackMode_ != PlaybackMode::Stopped) {
+    if (enabled_) {
       renderFrame(animationTime(millis()));
     }
   }
@@ -103,17 +104,19 @@ class LedAlbumLighting {
 
     playbackMode_ = mode;
     updateClock(now, wasClockRunning);
+    brightnessPercent_ = mode == PlaybackMode::Playing
+        ? playingBrightnessPercent_
+        : idleBrightnessPercent_;
+    strip_.setBrightness(brightnessToNeoPixelValue(brightnessPercent_));
 
     if (!enabled_) {
       return;
     }
-    if (mode == PlaybackMode::Stopped) {
-      clearStrip();
-    } else if (mode == PlaybackMode::Paused) {
-      renderFrame(clockFrozenAtMs_);
-    } else {
+    if (mode == PlaybackMode::Playing) {
       lastFrameAtMs_ = now - frameIntervalMs_;
       renderFrame(now);
+    } else {
+      renderFrame(clockFrozenAtMs_);
     }
   }
 
@@ -138,6 +141,8 @@ class LedAlbumLighting {
     } else if (playbackMode_ == PlaybackMode::Playing) {
       lastFrameAtMs_ = now - frameIntervalMs_;
       renderFrame(now);
+    } else {
+      renderFrame(clockFrozenAtMs_);
     }
   }
 
@@ -156,11 +161,12 @@ class LedAlbumLighting {
  private:
   static constexpr uint8_t ledCount_ = 30;
   static constexpr uint8_t dataPin_ = 16;
-  static constexpr uint8_t defaultBrightnessPercent_ = 50;
+  static constexpr uint8_t idleBrightnessPercent_ = 15;
+  static constexpr uint8_t playingBrightnessPercent_ = 50;
   static constexpr uint8_t defaultSaturationPercent_ = 100;
   static constexpr uint32_t frameIntervalMs_ = 33;
-  static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 500;
-  static constexpr uint32_t LED_TRANSITION_DURATION_MS = 100;
+  static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 1500;
+  static constexpr uint32_t LED_TRANSITION_DURATION_MS = 150;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
   static constexpr uint32_t defaultColor2_ = 0xA9C7AE;
 
@@ -171,12 +177,12 @@ class LedAlbumLighting {
   uint32_t lastFrameAtMs_ = 0;
   uint32_t clockFrozenAtMs_ = 0;
   uint8_t paletteColorCount_ = 2;
-  uint8_t brightnessPercent_ = defaultBrightnessPercent_;
+  uint8_t brightnessPercent_ = idleBrightnessPercent_;
   uint8_t saturationPercent_ = defaultSaturationPercent_;
   String activeAlbum_;
   bool hasAlbum_ = false;
   bool enabled_ = true;
-  PlaybackMode playbackMode_ = PlaybackMode::Stopped;
+  PlaybackMode playbackMode_ = PlaybackMode::Idle;
 
   bool isClockRunning() const {
     return enabled_ && playbackMode_ == PlaybackMode::Playing;
@@ -200,7 +206,7 @@ class LedAlbumLighting {
     if (!isClockRunning()) {
       clockFrozenAtMs_ = now;
     }
-    if (enabled_ && playbackMode_ != PlaybackMode::Stopped) {
+    if (enabled_) {
       renderFrame(animationTime(now));
     }
   }
@@ -344,8 +350,11 @@ class LedAlbumLighting {
     Serial.println();
     Serial.print("[LED] Mode: ");
     Serial.println(hasThirdColor ? "3-color rotating" : "2-color alternating");
-    Serial.print("[LED] Transition duration: ");
+    Serial.print("[LED] Color swap interval: ");
     Serial.print(LED_COLOR_SWAP_DURATION_MS);
+    Serial.println(" ms");
+    Serial.print("[LED] Transition duration: ");
+    Serial.print(LED_TRANSITION_DURATION_MS);
     Serial.println(" ms");
   }
 
