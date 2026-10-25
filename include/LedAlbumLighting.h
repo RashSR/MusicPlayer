@@ -160,6 +160,7 @@ class LedAlbumLighting {
   static constexpr uint8_t defaultSaturationPercent_ = 100;
   static constexpr uint32_t frameIntervalMs_ = 33;
   static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 500;
+  static constexpr uint32_t LED_TRANSITION_DURATION_MS = 100;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
   static constexpr uint32_t defaultColor2_ = 0xA9C7AE;
 
@@ -227,6 +228,20 @@ class LedAlbumLighting {
 
   static uint8_t channel(uint32_t color, uint8_t shift) {
     return static_cast<uint8_t>(color >> shift);
+  }
+
+  static uint32_t interpolateColor(uint32_t from, uint32_t to, float mix) {
+    const uint8_t red = static_cast<uint8_t>(
+        channel(from, 16) +
+        (static_cast<int>(channel(to, 16)) - channel(from, 16)) * mix + 0.5f);
+    const uint8_t green = static_cast<uint8_t>(
+        channel(from, 8) +
+        (static_cast<int>(channel(to, 8)) - channel(from, 8)) * mix + 0.5f);
+    const uint8_t blue = static_cast<uint8_t>(
+        channel(from, 0) +
+        (static_cast<int>(channel(to, 0)) - channel(from, 0)) * mix + 0.5f);
+    return (static_cast<uint32_t>(red) << 16) |
+           (static_cast<uint32_t>(green) << 8) | blue;
   }
 
   uint32_t saturateColor(uint32_t color) const {
@@ -335,12 +350,27 @@ class LedAlbumLighting {
   }
 
   uint32_t colorForPixel(uint16_t pixel, uint32_t now) const {
+    const uint32_t elapsed = now - phaseStartedAtMs_;
     const uint32_t fullCycleMs_ =
         LED_COLOR_SWAP_DURATION_MS * paletteColorCount_;
-    const uint32_t cyclePosition = (now - phaseStartedAtMs_) % fullCycleMs_;
+    const uint32_t cyclePosition = elapsed % fullCycleMs_;
     const uint8_t rotation = cyclePosition / LED_COLOR_SWAP_DURATION_MS;
     const uint8_t position = pixel % paletteColorCount_;
     const uint8_t fromIndex = (position + rotation) % paletteColorCount_;
-    return targetColors_[fromIndex];
+    const uint32_t targetColor = targetColors_[fromIndex];
+    const uint32_t timeIntoSwap =
+        cyclePosition % LED_COLOR_SWAP_DURATION_MS;
+    if (elapsed < LED_COLOR_SWAP_DURATION_MS ||
+        timeIntoSwap >= LED_TRANSITION_DURATION_MS) {
+      return targetColor;
+    }
+
+    const uint8_t previousIndex =
+        (fromIndex + paletteColorCount_ - 1) % paletteColorCount_;
+    const float progress =
+        static_cast<float>(timeIntoSwap) / LED_TRANSITION_DURATION_MS;
+    const float easedProgress = progress * progress * (3.0f - 2.0f * progress);
+    return interpolateColor(targetColors_[previousIndex], targetColor,
+                            easedProgress);
   }
 };
