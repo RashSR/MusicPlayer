@@ -10,6 +10,7 @@ let currentSelectionId = 0;
 let pendingPlaybackSelectionId = 0;
 let lastPlaybackSyncAt = 0;
 let playbackControlInProgress = false;
+let songsCatalogLoaded = false;
 let volumeUpdateTimer = null;
 let volumeRequestSequence = 0;
 let ledsEnabled = null;
@@ -268,8 +269,10 @@ async function syncDeviceStatus() {
             return;
         }
         const status = await response.json();
-        if(playbackSequence === currentSelectionId &&
-            pendingPlaybackSelectionId !== playbackSequence) {
+        if(songsCatalogLoaded &&
+            playbackSequence === currentSelectionId &&
+            (pendingPlaybackSelectionId === 0 ||
+                pendingPlaybackSelectionId !== playbackSequence)) {
             applyPlaybackStatus(status);
         }
         if(sequence === volumeRequestSequence &&
@@ -639,12 +642,13 @@ function applyPlaybackStatus(status) {
         );
     }
 
-    const songId = Number(status.song_id);
+    const reportedSongId = status.current_track_id ?? status.song_id;
+    const songId = Number(reportedSongId);
     const track = Number.isInteger(songId)
         ? allTracks.find(item => item.id === songId)
         : null;
     if(!track) {
-        if(status.song_id === null || status.song_id === undefined) {
+        if(reportedSongId === null || reportedSongId === undefined) {
             currentTrack = null;
             isPlaying = false;
             currentTime = 0;
@@ -730,7 +734,13 @@ function toggleAlbum(header) {
 
 async function loadSongs() {
     const response = await fetch('songs.json');
+    if(!response.ok) {
+        throw new Error(`Song catalog request failed (HTTP ${response.status})`);
+    }
     songsData = await response.json();
+    if(!Array.isArray(songsData.albums)) {
+        throw new Error('Song catalog response has no albums array');
+    }
     allTracks = [];
     const container = document.getElementById('albumsContainer');
 
@@ -769,7 +779,7 @@ async function loadSongs() {
         `;
         container.appendChild(albumDiv);
     });
-    await syncDeviceStatus();
+    songsCatalogLoaded = true;
 }
 
 function createTrackHTML(track, index, catalogIndex) {
@@ -823,8 +833,7 @@ function updateMiniPlayer(track, album) {
     mini.classList.remove('hidden');
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    loadSongs();
+window.addEventListener('DOMContentLoaded', async () => {
     domElements.volumeSlider.addEventListener('input', () => scheduleVolumeUpdate());
     domElements.volumeSlider.addEventListener('change', () => scheduleVolumeUpdate(true));
     domElements.ledToggle.addEventListener('click', toggleLeds);
@@ -836,13 +845,20 @@ window.addEventListener('DOMContentLoaded', () => {
         'input', () => scheduleLedSaturationUpdate());
     domElements.ledSaturationSlider.addEventListener(
         'change', () => scheduleLedSaturationUpdate(true));
-    syncDeviceStatus();
     setInterval(syncDeviceStatus, 5000);
     document.addEventListener('visibilitychange', () => {
         if(document.visibilityState === 'visible') {
             syncDeviceStatus();
         }
     });
+    window.addEventListener('focus', syncDeviceStatus);
+    try {
+        await Promise.all([loadSongs(), syncDeviceStatus()]);
+        await syncDeviceStatus();
+    } catch(error) {
+        console.error('[MusicPlayer] Initialization failed:', error);
+        setPlaybackMessage('Could not load the song catalog or device status.');
+    }
 });
 
 window.addEventListener('error', event => {
