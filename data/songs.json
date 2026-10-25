@@ -3,7 +3,7 @@
     {
       "name": "Taylor Swift",
       "cover": "taylor_swift.jpg",
-      "ledColors": ["#44A6A0", "#8CCB85", "#F1E5C8"],
+      "ledColors": ["#238F85", "#65B86B", "#D4AD60"],
       "tracks": [
         { "id": 101, "title": "Tim McGraw", "duration": 235 },
         { "id": 102, "title": "Picture to Burn", "duration": 175 },
@@ -24,7 +24,7 @@
     {
       "name": "Fearless",
       "cover": "fearless.jpg",
-      "ledColors": ["#D4A64A", "#F5DFA4"],
+      "ledColors": ["#C58B20", "#E6BC52"],
       "tracks": [
         { "id": 201, "title": "Fearless", "duration": 243 },
         { "id": 202, "title": "Fifteen", "duration": 295 },
@@ -49,7 +49,7 @@
     {
       "name": "Speak Now",
       "cover": "speak_now.jpg",
-      "ledColors": ["#512078", "#B794DB"],
+      "ledColors": ["#512078", "#9250C8"],
       "tracks": [
         { "id": 301, "title": "Mine", "duration": null },
         { "id": 302, "title": "Sparks Fly", "duration": null },
@@ -73,7 +73,7 @@
     {
       "name": "Red",
       "cover": "red.jpg",
-      "ledColors": ["#A51C30", "#291C24", "#E8D6C3"],
+      "ledColors": ["#A51C30", "#6E1025", "#E02932"],
       "tracks": [
         { "id": 401, "title": "State of Grace", "duration": null },
         { "id": 402, "title": "Red", "duration": null },
@@ -100,7 +100,7 @@
     {
       "name": "1989",
       "cover": "1989.jpg",
-      "ledColors": ["#9BC9DB", "#E6C7B7", "#F4F1EA"],
+      "ledColors": ["#368FC5", "#78B9D9", "#D28D70"],
       "tracks": [
         { "id": 501, "title": "Welcome to New York", "duration": 213 },
         { "id": 502, "title": "Blank Space", "duration": 232 },
@@ -123,7 +123,7 @@
     {
       "name": "Reputation",
       "cover": "reputation.jpg",
-      "ledColors": ["#303035", "#B9B9BD"],
+      "ledColors": ["#303035", "#96969F"],
       "tracks": [
         { "id": 601, "title": "…Ready for It?", "duration": null },
         { "id": 602, "title": "End Game", "duration": null },
@@ -145,7 +145,7 @@
     {
       "name": "Lover",
       "cover": "lover.jpg",
-      "ledColors": ["#F4A5C7", "#88CDEB", "#B99CDE"],
+      "ledColors": ["#E94C9A", "#39A9DE", "#A16ADD"],
       "tracks": [
         { "id": 701, "title": "I Forgot That You Existed", "duration": 171 },
         { "id": 702, "title": "Cruel Summer", "duration": 178 },
@@ -170,7 +170,7 @@
     {
       "name": "Folklore",
       "cover": "folklore.jpg",
-      "ledColors": ["#62676A", "#C5C7C5"],
+      "ledColors": ["#454D52", "#939B9D"],
       "tracks": [
         { "id": 801, "title": "The 1", "duration": 210 },
         { "id": 802, "title": "Cardigan", "duration": 240 },
@@ -194,7 +194,7 @@
     {
       "name": "Evermore",
       "cover": "evermore.jpg",
-      "ledColors": ["#995C38", "#D1A675", "#405A42"],
+      "ledColors": ["#995C38", "#C58C49", "#405A42"],
       "tracks": [
         { "id": 901, "title": "Willow", "duration": 215 },
         { "id": 902, "title": "Champagne Problems", "duration": 244 },
@@ -218,7 +218,7 @@
     {
       "name": "Midnights",
       "cover": "midnights.jpg",
-      "ledColors": ["#252C62", "#8B8ED5"],
+      "ledColors": ["#172B64", "#345AC4"],
       "tracks": [
         { "id": 1001, "title": "Lavender Haze", "duration": 202 },
         { "id": 1002, "title": "Maroon", "duration": 218 },
@@ -247,7 +247,7 @@
     {
       "name": "The Tortured Poetes Department",
       "cover": "tortured_poets_department.jpg",
-      "ledColors": ["#4B4744", "#D8D0C4"],
+      "ledColors": ["#4B4744", "#A89C8B"],
       "tracks": [
         { "id": 1101, "title": "Fortnight", "duration": 229 },
         { "id": 1102, "title": "The Tortured Poets Department", "duration": 293 },
@@ -285,7 +285,7 @@
     {
       "name": "The Life of a Showgirl",
       "cover": "life_of_a_showgirl.jpg",
-      "ledColors": ["#E87928", "#65B9A8"],
+      "ledColors": ["#E87928", "#279E8E"],
       "tracks": [
         { "id": 1201, "title": "The Fate of Ophelia", "duration": 226 },
         { "id": 1202, "title": "Elizabeth Taylor", "duration": 208 },
