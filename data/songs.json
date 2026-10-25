@@ -123,7 +123,7 @@
     {
       "name": "Reputation",
       "cover": "reputation.jpg",
-      "ledColors": ["#090B12", "#263D42", "#687C84"],
+      "ledColors": ["#141414", "#454545", "#888888"],
       "tracks": [
         { "id": 601, "title": "…Ready for It?", "duration": null },
         { "id": 602, "title": "End Game", "duration": null },

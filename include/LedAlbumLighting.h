@@ -165,7 +165,7 @@ class LedAlbumLighting {
   static constexpr uint8_t playingBrightnessPercent_ = 50;
   static constexpr uint8_t defaultSaturationPercent_ = 130;
   static constexpr uint32_t frameIntervalMs_ = 33;
-  static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 1500;
+  static constexpr uint32_t LED_COLOR_SWAP_DURATION_MS = 1000;
   static constexpr uint32_t LED_TRANSITION_DURATION_MS = 300;
   static constexpr uint32_t defaultColor1_ = 0x315B4C;
   static constexpr uint32_t defaultColor2_ = 0xA9C7AE;
